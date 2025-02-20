@@ -1,65 +1,128 @@
-import { User } from "../models/User.js";
-import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
+import User from "../models/User.js";
+import { sendVerificationEmail } from "../utils/mailer.js";
+import crypto from "crypto";
+import { successResponse, errorResponse } from "../utils/responseHandler.js";
 
-// Register a new user
+const ALLOWED_ROLES = ["user", "vendor", "rider"];
+
+/**
+ * Generates a JWT token for authentication.
+ */
+const generateToken = (id) => {
+  return jwt.sign({ id }, process.env.JWT_SECRET, { expiresIn: "7d" }); // Shortened expiry for better security
+};
+
+/**
+ * Registers a new user.
+ * Sends a verification email after registration.
+ */
 export const register = async (req, res) => {
-  const { name, email, password, role } = req.body;
-
   try {
-    // Checking if user already exists
-    let user = await User.findOne({ email });
-    if (user) {
-      return res.status(400).json({ msg: "User already exists" });
+    const { name, email, password, role } = req.body;
+
+    if (!name || !email || !password) {
+      return errorResponse(res, "Please provide all required fields", 400);
     }
 
-    // Create a new user
-    user = new User({ name, email, password, role });
+    if (!ALLOWED_ROLES.includes(role)) {
+      return errorResponse(res, "Invalid role", 400);
+    }
 
-    // Save the user to the database
+    const userExists = await User.findOne({ email });
+    if (userExists) {
+      return errorResponse(res, "User already exists", 400);
+    }
+
+    const user = new User({ name, email, password, role });
+    const verificationToken = user.generateVerificationToken();
     await user.save();
 
-    // Generate JWT token
-    const payload = { id: user.id, role: user.role };
-    const token = jwt.sign(payload, process.env.JWT_SECRET, {
-      expiresIn: "1h",
-    });
+    await sendVerificationEmail(user.email, verificationToken);
 
-    // Send response
-    res.status(201).json({ message: "hajur ko khata khulyo" });
-  } catch (err) {
-    console.error("Registration error:", err.message);
-    res.status(500).json({ msg: "Server error" });
+    return successResponse(
+      res,
+      {},
+      "User registered successfully. Please check your email to verify your account.",
+      201
+    );
+  } catch (error) {
+    console.error("Registration error:", error);
+    return errorResponse(res, "Server error", 500);
   }
 };
 
-// Login user
+/**
+ * Logs in an existing user.
+ */
 export const login = async (req, res) => {
-  const { email, password } = req.body;
-
   try {
-    // Check if user exists
-    const user = await User.findOne({ email });
+    const { email, password } = req.body;
+
+    const user = await User.findOne({ email }).select("+password");
     if (!user) {
-      return res.status(400).json({ msg: "Invalid credentials" });
+      return errorResponse(res, "Invalid credentials", 401);
     }
 
-    // Compare passwords
-    const isMatch = await user.comparePassword(password);
+    const isMatch = await user.matchPassword(password);
     if (!isMatch) {
-      return res.status(400).json({ msg: "Invalid credentials" });
+      return errorResponse(res, "Invalid credentials", 401);
     }
 
-    // Generate JWT token
-    const payload = { id: user.id, role: user.role };
-    const token = jwt.sign(payload, process.env.JWT_SECRET, {
-      expiresIn: "1h",
+    if (!user.isEmailVerified) {
+      return errorResponse(
+        res,
+        "Please verify your email before logging in",
+        401
+      );
+    }
+
+    const token = generateToken(user._id);
+    return successResponse(
+      res,
+      {
+        _id: user._id,
+        name: user.name,
+        email: user.email,
+        role: user.role,
+        token,
+      },
+      "Login successful"
+    );
+  } catch (error) {
+    console.error("Login error:", error);
+    return errorResponse(res, "Server error", 500);
+  }
+};
+
+/**
+ * Verifies a user's email using a token.
+ */
+export const verifyEmail = async (req, res) => {
+  const { token } = req.params;
+  try {
+    const hashedToken = crypto
+      .createHash("sha256")
+      .update(token)
+      .digest("hex");
+
+    const user = await User.findOne({
+      verificationToken: hashedToken,
+      verificationTokenExpires: { $gt: Date.now() },
     });
 
-    // Send response
-    res.json({ token });
-  } catch (err) {
-    console.error("Login error:", err.message);
-    res.status(500).json({ msg: "Server error" });
+    if (!user) {
+      return errorResponse(res, "Invalid or expired verification token", 400);
+    }
+
+    user.isEmailVerified = true;
+    user.verificationToken = undefined;
+    user.verificationTokenExpires = undefined;
+    await user.save();
+
+    return successResponse(res, {}, "Email verified successfully");
+  } catch (error) {
+    console.error("Email verification error:", error);
+    return errorResponse(res, "Server error", 500);
   }
 };

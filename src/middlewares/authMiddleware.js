@@ -1,31 +1,52 @@
 import jwt from "jsonwebtoken";
+import User from "../models/User.js";
+import { errorResponse } from "../utils/responseHandler.js"; // Centralized response handling
 
-// Verify JWT token
-export const verifyToken = (req, res, next) => {
-  const token = req.header("Authorization")?.split(" ")[1];
-  if (!token) return res.status(401).json({ message: "Access denied" });
+/**
+ * Middleware to protect routes that require authentication.
+ * Verifies the JWT token and attaches the user to the request object.
+ */
+export const protect = async (req, res, next) => {
+  let token = req.headers.authorization?.split(" ")[1];
+
+  if (!token) {
+    return errorResponse(res, "Not authorized, no token", 401);
+  }
 
   try {
+    // Verify token
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
-    req.user = decoded;
+
+    // Fetch user from DB (excluding password)
+    req.user = await User.findById(decoded.id).select("-password");
+
+    if (!req.user) {
+      return errorResponse(res, "User not found", 404);
+    }
+
     next();
-  } catch (err) {
-    res.status(400).json({ message: "Invalid token" });
+  } catch (error) {
+    if (error.name === "TokenExpiredError") {
+      return errorResponse(res, "Token expired, please log in again", 401);
+    } else {
+      return errorResponse(res, "Invalid token", 401);
+    }
   }
 };
 
-// // Check if user is an admin
-// export const isAdmin = (req, res, next) => {
-//   if (req.user.role !== "admin") {
-//     return res.status(403).json({ message: "Access denied" });
-//   }
-//   next();
-// };
-
-// // Check if user is a restaurant
-// export const isRestaurant = (req, res, next) => {
-//   if (req.user.role !== "restaurant") {
-//     return res.status(403).json({ message: "Access denied" });
-//   }
-//   next();
-// };
+/**
+ * Middleware to restrict access to specific roles.
+ * @param {...string} roles - The roles allowed to access the route.
+ */
+export const authorize = (...roles) => {
+  return (req, res, next) => {
+    if (!req.user || !roles.includes(req.user.role)) {
+      return errorResponse(
+        res,
+        `User role ${req.user?.role} is not authorized to access this route`,
+        403
+      );
+    }
+    next();
+  };
+};

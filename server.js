@@ -3,8 +3,12 @@ import cors from "cors";
 import dotenv from "dotenv";
 import connectDB from "./src/config/db.js";
 import authRoutes from "./src/routes/authRoutes.js"; // Import authRoutes
+import restaurantRoutes from "./src/routes/restaurantRoutes.js"; // Import restaurantRoutes
 
 dotenv.config();
+
+// Connect to MongoDB first (ensures DB is ready before handling requests)
+connectDB();
 
 const app = express();
 
@@ -12,11 +16,9 @@ const app = express();
 app.use(express.json());
 app.use(cors());
 
-// Connect to MongoDB
-connectDB();
-
-// routes
-app.use("/api/auth", authRoutes); 
+// Routes
+app.use("/api/auth", authRoutes);
+app.use("/api/restaurants", restaurantRoutes);
 
 // Test route
 app.get("/", (req, res) => {
