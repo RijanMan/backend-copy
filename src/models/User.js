@@ -40,6 +40,25 @@ const userSchema = new mongoose.Schema(
     },
     verificationToken: String,
     verificationTokenExpires: Date,
+    resetPasswrodToken: String,
+    resetPasswrodExpires: Date,
+    address: {
+      street: String,
+      city: String,
+      state: String,
+    },
+    phoneNumber: {
+      type: String,
+      match: [/^\+?[\d\s-]{10,}$/, "Please add a valid phone number"],
+    },
+    profilePicture: {
+      type: String,
+      default: "default-profile.jpg",
+    },
+    preferences: {
+      dietaryRestrictions: [String],
+      favoriteCuisines: [String],
+    },
   },
   { timestamps: true }
 );
@@ -57,8 +76,8 @@ userSchema.pre("save", async function (next) {
 });
 
 // Compare password
-userSchema.methods.matchPassword = async function (candidatePassword) {
-  return await bcrypt.compare(candidatePassword, this.password);
+userSchema.methods.matchPassword = async function (enteredPassword) {
+  return await bcrypt.compare(enteredPassword, this.password);
 };
 
 // Generate verification token
@@ -70,6 +89,17 @@ userSchema.methods.generateVerificationToken = function () {
     .digest("hex");
   this.verificationTokenExpires = Date.now() + 24 * 60 * 60 * 1000; // 24 hours
   return verificationToken;
+};
+
+// Generate password reset token
+userSchema.methods.generatePasswordResetToken = function () {
+  const resetToken = crypto.randomBytes(20).toString("hex");
+  this.resetPasswrodToken = crypto
+    .createHash("sha256")
+    .update(resetToken)
+    .digest("hex");
+  this.resetPasswrodExpires = Date.now() + 10 * 60 * 1000; // 10 minutes
+  return resetToken;
 };
 
 // Generate JWT authentication token

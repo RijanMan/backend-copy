@@ -53,7 +53,10 @@ const restaurantSchema = new mongoose.Schema(
       type: String,
       maxlength: [500, "Description cannot exceed 500 characters"],
     },
-    images: [String],
+    images: {
+      type: [String],
+      default: ["default-image.jpg"],
+    },
     tags: [String],
     deliveryFee: {
       type: Number,

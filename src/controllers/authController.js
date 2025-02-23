@@ -4,7 +4,7 @@ import { sendVerificationEmail } from "../utils/mailer.js";
 import crypto from "crypto";
 import { successResponse, errorResponse } from "../utils/responseHandler.js";
 
-const ALLOWED_ROLES = ["user", "vendor", "rider"];
+const ALLOWED_ROLES = ["user", "vendor", "rider", "admin"];
 
 /**
  * Generates a JWT token for authentication.
@@ -21,33 +21,50 @@ export const register = async (req, res) => {
   try {
     const { name, email, password, role } = req.body;
 
+    // Check if all required fields are provided
     if (!name || !email || !password) {
       return errorResponse(res, "Please provide all required fields", 400);
     }
 
+    // Check if the role is valid
     if (!ALLOWED_ROLES.includes(role)) {
       return errorResponse(res, "Invalid role", 400);
     }
 
+    // Check if the role is admin and if the request is comming from an existing admin
+    if (role === "admin") {
+      if (!req.user || req.user.role !== "admin") {
+        return errorResponse(
+          res,
+          "Only an existing admin can create a new admin",
+          403
+        );
+      }
+    }
+
+    // Check if the user already exists
     const userExists = await User.findOne({ email });
     if (userExists) {
       return errorResponse(res, "User already exists", 400);
     }
 
+    // Create a new user
     const user = new User({ name, email, password, role });
     const verificationToken = user.generateVerificationToken();
+
     await user.save();
 
     await sendVerificationEmail(user.email, verificationToken);
 
     return successResponse(
       res,
-      {},
-      "User registered successfully. Please check your email to verify your account.",
+      {
+        message:
+          "User registered successfully. Please check your email to verify your account.",
+      },
       201
     );
   } catch (error) {
-    console.error("Registration error:", error);
     return errorResponse(res, "Server error", 500);
   }
 };
@@ -90,7 +107,6 @@ export const login = async (req, res) => {
       "Login successful"
     );
   } catch (error) {
-    console.error("Login error:", error);
     return errorResponse(res, "Server error", 500);
   }
 };
@@ -101,10 +117,7 @@ export const login = async (req, res) => {
 export const verifyEmail = async (req, res) => {
   const { token } = req.params;
   try {
-    const hashedToken = crypto
-      .createHash("sha256")
-      .update(token)
-      .digest("hex");
+    const hashedToken = crypto.createHash("sha256").update(token).digest("hex");
 
     const user = await User.findOne({
       verificationToken: hashedToken,

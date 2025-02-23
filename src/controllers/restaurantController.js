@@ -1,12 +1,21 @@
 import Restaurant from "../models/Restaurant.js";
 import { successResponse, errorResponse } from "../utils/responseHandler.js";
+import mongoose from "mongoose";
 
 export const createRestaurant = async (req, res) => {
   try {
-    const restaurant = new Restaurant({
+    const restaurantData = {
       ...req.body,
       owner: req.user._id,
-    });
+    };
+
+    if (req.files && req.files.length > 0) {
+      restaurantData.images = req.files.map(
+        (file) => `/uploads/restaurants/${file.filename}`
+      );
+    }
+
+    const restaurant = new Restaurant(restaurantData);
     await restaurant.save();
     successResponse(res, restaurant, "Restaurant created successfully", 201);
   } catch (error) {
@@ -43,13 +52,20 @@ export const getRestaurants = async (req, res) => {
 
 export const getRestaurant = async (req, res) => {
   try {
-    const restaurant = await Restaurant.findById(req.params.id);
+    const { id } = req.params;
+
+    // Check if the id is a valid ObjectId
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      return errorResponse(res, "Invalid restaurant ID", 400);
+    }
+
+    const restaurant = await Restaurant.findById(id);
     if (!restaurant) {
       return errorResponse(res, "Restaurant not found", 404);
     }
     successResponse(res, restaurant, "Restaurant retrieved successfully");
   } catch (error) {
-    errorResponse(res, error.message, 400);
+    errorResponse(res, error.message, 500);
   }
 };
 
@@ -68,9 +84,18 @@ export const updateRestaurant = async (req, res) => {
       );
     }
 
+    const updateData = { ...req.body };
+
+    if (req.files && req.files.length > 0) {
+      updateData.images = [
+        ...restaurant.images,
+        ...req.files.map((file) => `/uploads/restaurants/${file.filename}`),
+      ];
+    }
+
     const updatedRestaurant = await Restaurant.findByIdAndUpdate(
       req.params.id,
-      req.body,
+      updateData,
       {
         new: true,
         runValidators: true,
