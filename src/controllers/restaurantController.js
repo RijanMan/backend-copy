@@ -4,19 +4,28 @@ import mongoose from "mongoose";
 
 export const createRestaurant = async (req, res) => {
   try {
+    // Ensure only vendors can create restaurants
+    if (req.user.role !== "vendor") {
+      return errorResponse(res, "Only vendors can create restaurants", 403);
+    }
+
+    // Assign the authenticated user as the restaurant owner
     const restaurantData = {
       ...req.body,
       owner: req.user._id,
     };
 
+    // Handle uploaded images
     if (req.files && req.files.length > 0) {
       restaurantData.images = req.files.map(
         (file) => `/uploads/restaurants/${file.filename}`
       );
     }
 
+    // Save the restaurant
     const restaurant = new Restaurant(restaurantData);
     await restaurant.save();
+
     successResponse(res, restaurant, "Restaurant created successfully", 201);
   } catch (error) {
     errorResponse(res, error.message, 400);
@@ -131,7 +140,7 @@ export const deleteRestaurant = async (req, res) => {
 
 export const searchRestaurants = async (req, res) => {
   try {
-    const { query, cuisine } = req.query;
+    const { query, cuisine, page = 1, limit = 10 } = req.query;
     const searchQuery = {};
 
     if (query) {
@@ -145,8 +154,22 @@ export const searchRestaurants = async (req, res) => {
       searchQuery.cuisine = { $regex: cuisine, $options: "i" };
     }
 
-    const restaurants = await Restaurant.find(searchQuery);
-    successResponse(res, restaurants, "Restaurants search results");
+    const total = await Restaurant.countDocuments(searchQuery);
+    const restaurants = await Restaurant.find(searchQuery)
+      .limit(Number(limit))
+      .skip((Number(page) - 1) * Number(limit))
+      .exec();
+
+    successResponse(
+      res,
+      {
+        restaurants,
+        currentPage: page,
+        totalPages: Math.ceil(total / limit),
+        totalRestaurants: total,
+      },
+      "Restaurants search results"
+    );
   } catch (error) {
     errorResponse(res, error.message, 400);
   }

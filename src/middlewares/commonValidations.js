@@ -16,12 +16,6 @@ export const restaurantValidationRules = [
   body("address.state").notEmpty().withMessage("State is required"),
   body("address.zipCode").notEmpty().withMessage("Zip code is required"),
   body("phone").notEmpty().withMessage("Phone number is required"),
-  // body("images").custom((value, { req }) => {
-  //   if (!req.files || req.files.length === 0) {
-  //     throw new Error("At least one image is required");
-  //   }
-  //   return true;
-  // }),
 ];
 
 export const menuItemValidationRules = [
@@ -47,5 +41,4 @@ export const menuItemValidationRules = [
     .optional()
     .isInt({ min: 0 })
     .withMessage("Preparation time must be a positive integer"),
-    
 ];

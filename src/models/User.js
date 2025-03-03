@@ -1,7 +1,6 @@
 import mongoose from "mongoose";
 import bcrypt from "bcryptjs";
 import crypto from "crypto";
-import jwt from "jsonwebtoken";
 
 const userSchema = new mongoose.Schema(
   {
@@ -40,12 +39,13 @@ const userSchema = new mongoose.Schema(
     },
     verificationToken: String,
     verificationTokenExpires: Date,
-    resetPasswrodToken: String,
-    resetPasswrodExpires: Date,
+    resetPasswordToken: String,
+    resetPasswordExpires: Date,
     address: {
       street: String,
       city: String,
       state: String,
+      zipCode: String,
     },
     phoneNumber: {
       type: String,
@@ -55,10 +55,47 @@ const userSchema = new mongoose.Schema(
       type: String,
       default: "default-profile.jpg",
     },
+
+    // Rider Specific Fields
+    isAvaailable: {
+      type: Boolean,
+      default: false,
+    },
+    licenseNumber: String,
+    ratings: [
+      {
+        orderId: { type: mongoose.Schema.Types.ObjectId, ref: "Order" },
+        rating: { type: Number, min: 1, max: 5 },
+        review: String,
+      },
+    ],
+    totalEarnings: {
+      type: Number,
+      default: 0,
+    },
+
+    //Customer Specific fiels
     preferences: {
       dietaryRestrictions: [String],
+      favouriteRestaurants: [
+        { type: mongoose.Schema.Types.ObjectId, ref: "Restaurant" },
+      ],
       favoriteCuisines: [String],
+      spicyPreference: {
+        type: Number,
+        min: 0,
+        max: 5,
+        default: 3,
+      },
     },
+
+    //Vendor Specific fiels
+    RestaurantName: {
+      type: String,
+    },
+    ownedRestaurants: [
+      { type: mongoose.Schema.Types.ObjectId, ref: "Restaurant" },
+    ],
   },
   { timestamps: true }
 );
@@ -102,12 +139,12 @@ userSchema.methods.generatePasswordResetToken = function () {
   return resetToken;
 };
 
-// Generate JWT authentication token
-userSchema.methods.generateAuthToken = function () {
-  return jwt.sign({ id: this._id }, process.env.JWT_SECRET, {
-    expiresIn: "30d",
-  });
-};
+// // Generate JWT authentication token
+// userSchema.methods.generateAuthToken = function () {
+//   return jwt.sign({ id: this._id }, process.env.JWT_SECRET, {
+//     expiresIn: "30d",
+//   });
+// };
 
 const User = mongoose.model("User", userSchema);
 export default User;

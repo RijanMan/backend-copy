@@ -27,9 +27,10 @@ export const createMenuItem = async (req, res) => {
         restaurant: restaurantId,
         items: [],
       });
-    } else {
-      menu.items.push(menuItemData);
     }
+    // } else {
+    //   menu.items.push(menuItemData);
+    // }
 
     if (req.file) {
       menuItemData.image = `/uploads/menu-items/${req.file.filename}`;

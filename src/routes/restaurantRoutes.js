@@ -11,6 +11,11 @@ import {
   deleteRestaurant,
   searchRestaurants,
 } from "../controllers/restaurantController.js";
+import {
+  getRestaurantAnalytics,
+  getRestaurantReport,
+  updateRestaurantHours,
+} from "../controllers/vendorController.js";
 
 const router = express.Router();
 
@@ -38,4 +43,27 @@ router.put(
 
 router.delete("/:id", protect, authorize("vendor"), deleteRestaurant);
 
+router.get(
+  "/:restaurantId/analytics",
+  protect,
+  authorize("vendor"),
+  getRestaurantAnalytics
+);
+
+router.get(
+  "/:restaurantId/report",
+  protect,
+  authorize("vendor"),
+  getRestaurantReport
+);
+
+router.put(
+  "/:restaurantId/hours",
+  protect,
+  authorize("vendor"),
+  validate([
+    // Add validation rules for opening hours
+  ]),
+  updateRestaurantHours
+);
 export default router;

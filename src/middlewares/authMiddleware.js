@@ -2,21 +2,16 @@ import jwt from "jsonwebtoken";
 import User from "../models/User.js";
 import { errorResponse } from "../utils/responseHandler.js"; // Centralized response handling
 
-/**
- * Middleware to protect routes that require authentication.
- * Verifies the JWT token and attaches the user to the request object.
- */
 export const protect = async (req, res, next) => {
   let token;
 
+  // Check if Authorization header exists and starts with "Bearer"
   if (
     req.headers.authorization &&
     req.headers.authorization.startsWith("Bearer")
   ) {
     try {
-      // Get token from header
-      token = req.headers.authorization.split(" ")[1];
-
+      token = req.headers.authorization.split(" ")[1]; // Extract token
       // Verify token
       const decoded = jwt.verify(token, process.env.JWT_SECRET);
 
@@ -32,24 +27,13 @@ export const protect = async (req, res, next) => {
       }
     }
   }
+
+  // If no token, return an error immediately
   if (!token) {
     return errorResponse(res, "Not authorized to access this route", 401);
   }
 };
 
-
-export const isAdmin = (req, res, next) => {
-  if (req.user && req.user.role === "admin") {
-    next();
-  } else {
-    return errorResponse(res, "Not authorized as an admin", 401);
-  }
-};
-
-/**
- * Middleware to restrict access to specific roles.
- * @param {...string} roles - The roles allowed to access the route.
- */
 export const authorize = (...roles) => {
   return (req, res, next) => {
     if (!req.user || !roles.includes(req.user.role)) {
@@ -61,4 +45,12 @@ export const authorize = (...roles) => {
     }
     next();
   };
+};
+
+export const adminOnly = (req, res, next) => {
+  if (req.user.role === "admin") {
+    next();
+  } else {
+    errorResponse(res, "Not authorized as an admin", 403);
+  }
 };

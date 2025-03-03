@@ -55,7 +55,6 @@ const restaurantSchema = new mongoose.Schema(
     },
     images: {
       type: [String],
-      default: ["default-image.jpg"],
     },
     tags: [String],
     deliveryFee: {

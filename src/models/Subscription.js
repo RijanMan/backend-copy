@@ -33,11 +33,7 @@ const subscriptionSchema = new mongoose.Schema(
         enum: ["vegetarian", "vegan", "lactose-free", "gluten-free"],
       },
     ],
-    allergies: [
-      {
-        type: String,
-      },
-    ],
+    allergies: [String],
     customizations: {
       type: Map,
       of: String,
@@ -68,6 +64,11 @@ const subscriptionSchema = new mongoose.Schema(
       zipCode: { type: String, required: true },
     },
     deliveryInstructions: String,
+    totalAmount: {
+      type: Number,
+      required: true,
+      min: [0, "Amount cannot be negative"],
+    },
   },
   { timestamps: true }
 );
