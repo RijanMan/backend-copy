@@ -39,11 +39,20 @@ export const createMealPlan = async (req, res) => {
 export const getMealPlans = async (req, res) => {
   try {
     const { restaurantId } = req.params;
-    const { isActive } = req.query;
+    const { isActive, mealType, dietaryOptions } = req.query;
 
     const query = { restaurant: restaurantId };
+
     if (isActive !== undefined) {
       query.isActive = isActive === "true";
+    }
+
+    if (mealType) {
+      query.mealType = mealType;
+    }
+
+    if (dietaryOptions) {
+      query.dietaryOptions = dietaryOptions;
     }
 
     const mealPlans = await MealPlan.find(query).populate("menuItems");
@@ -79,6 +88,7 @@ export const updateMealPlan = async (req, res) => {
     }
 
     const restaurant = await Restaurant.findById(mealPlan.restaurant);
+
     if (restaurant.owner.toString() !== req.user._id.toString()) {
       return errorResponse(res, "Not authorized to update this meal plan", 403);
     }

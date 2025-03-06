@@ -24,6 +24,16 @@ const menuItemSchema = new mongoose.Schema({
     required: [true, "Category is required"],
     enum: ["appetizer", "main course", "dessert", "beverage"],
   },
+  mealType: {
+    type: String,
+    required: [true, "Meal Type is required"],
+    enum: ["breakfast", "lunch", "dinner"],
+  },
+  dietType: {
+    type: String,
+    required: [true, "Diet type is required"],
+    enum: ["vegan", "vegetarian", "non-vegetarian"],
+  },
   image: {
     type: String,
     default: "default-food-image.jpg",
@@ -39,9 +49,19 @@ const menuItemSchema = new mongoose.Schema({
     max: 5,
     default: 0,
   },
-  preparationTime: {
-    type: Number,
-    min: 0,
+  dayAvailable: {
+    type: [String],
+    enum: [
+      "monday",
+      "tuesday",
+      "wednesday",
+      "thursday",
+      "friday",
+      "saturday",
+      "sunday",
+      "all",
+    ],
+    default: ["all"],
   },
 });
 

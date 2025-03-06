@@ -23,22 +23,28 @@ export const menuItemValidationRules = [
   body("description").notEmpty().withMessage("Item description is required"),
   body("price").isNumeric().withMessage("Price must be a number"),
   body("category")
-    .isIn(["appetizer", "main course", "dessert", "beverage"])
+    .isIn(["main", "side", "bread", "rice", "dessert", "beverage", "starter"])
     .withMessage("Invalid category"),
+  body("mealType")
+    .isIn(["breakfast", "lunch", "dinner", "all-day"])
+    .withMessage("Invalid meal type"),
+  body("dietType")
+    .isIn(["vegan", "vegetarian", "non-vegetarian"])
+    .withMessage("Invalid diet type"),
   body("isAvailable")
     .optional()
     .isBoolean()
     .withMessage("isAvailable must be a boolean"),
-  body("allergens")
+  body("isPopular")
     .optional()
-    .isArray()
-    .withMessage("Allergens must be an array"),
+    .isBoolean()
+    .withMessage("isPopular must be a boolean"),
   body("spicyLevel")
     .optional()
     .isInt({ min: 0, max: 5 })
     .withMessage("Spicy level must be between 0 and 5"),
-  body("preparationTime")
+  body("dayAvailable")
     .optional()
-    .isInt({ min: 0 })
-    .withMessage("Preparation time must be a positive integer"),
+    .isArray()
+    .withMessage("Day available must be an array"),
 ];

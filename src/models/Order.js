@@ -45,7 +45,7 @@ const orderSchema = new mongoose.Schema(
     },
     paymentMethod: {
       type: String,
-      enum: ["cash", "credit card", "debit card", "online payment"],
+      enum: ["cash", "online payment"],
       required: true,
     },
     paymentStatus: {
@@ -72,6 +72,18 @@ const orderSchema = new mongoose.Schema(
       max: 5,
     },
     feedback: String,
+    subscription: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Subscription",
+    },
+    isRecurring: {
+      type: Boolean,
+      default: false,
+    },
+    deliveryDate: {
+      type: Date,
+      default: Date.now,
+    },
   },
   { timestamps: true }
 );

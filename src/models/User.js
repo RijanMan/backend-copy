@@ -37,6 +37,12 @@ const userSchema = new mongoose.Schema(
       type: Boolean,
       default: false,
     },
+
+    isActive: {
+      type: Boolean,
+      default: true,
+    },
+
     verificationToken: String,
     verificationTokenExpires: Date,
     resetPasswordToken: String,
@@ -57,36 +63,15 @@ const userSchema = new mongoose.Schema(
     },
 
     // Rider Specific Fields
-    isAvaailable: {
+    isAvailable: {
       type: Boolean,
       default: false,
     },
     licenseNumber: String,
-    ratings: [
-      {
-        orderId: { type: mongoose.Schema.Types.ObjectId, ref: "Order" },
-        rating: { type: Number, min: 1, max: 5 },
-        review: String,
-      },
-    ],
+
     totalEarnings: {
       type: Number,
       default: 0,
-    },
-
-    //Customer Specific fiels
-    preferences: {
-      dietaryRestrictions: [String],
-      favouriteRestaurants: [
-        { type: mongoose.Schema.Types.ObjectId, ref: "Restaurant" },
-      ],
-      favoriteCuisines: [String],
-      spicyPreference: {
-        type: Number,
-        min: 0,
-        max: 5,
-        default: 3,
-      },
     },
 
     //Vendor Specific fiels
@@ -95,6 +80,28 @@ const userSchema = new mongoose.Schema(
     },
     ownedRestaurants: [
       { type: mongoose.Schema.Types.ObjectId, ref: "Restaurant" },
+    ],
+
+    // User preferences
+
+    dietaryPreference: {
+      type: String,
+      enum: ["vegetarian", "vegan", "non-vegetarian"],
+      default: "non-vegetarian",
+    },
+
+    favoriteRestaurants: [
+      { type: mongoose.Schema.Types.ObjectId, ref: "Restaurant" },
+    ],
+
+    // Login tracking
+    lastLogin: Date,
+    loginHistory: [
+      {
+        timestamp: Date,
+        ipAddress: String,
+        userAgent: String,
+      },
     ],
   },
   { timestamps: true }
@@ -131,20 +138,31 @@ userSchema.methods.generateVerificationToken = function () {
 // Generate password reset token
 userSchema.methods.generatePasswordResetToken = function () {
   const resetToken = crypto.randomBytes(20).toString("hex");
-  this.resetPasswrodToken = crypto
+  this.resetPasswordToken = crypto
     .createHash("sha256")
     .update(resetToken)
     .digest("hex");
-  this.resetPasswrodExpires = Date.now() + 10 * 60 * 1000; // 10 minutes
+  this.resetPasswordExpires = Date.now() + 10 * 60 * 1000; // 10 minutes
   return resetToken;
 };
 
-// // Generate JWT authentication token
-// userSchema.methods.generateAuthToken = function () {
-//   return jwt.sign({ id: this._id }, process.env.JWT_SECRET, {
-//     expiresIn: "30d",
-//   });
-// };
+userSchema.methods.trackLogin = async function (ipAddress, userAgent) {
+  this.lastLogin = new Date();
+
+  // Keep only the last 10 logins
+  // if (this.loginHistory && this.loginHistory.length >= 10) {
+  //   this.loginHistory = this.loginHistory.slice(-9);
+  // }
+
+  // this.loginHistory.push({
+  //   timestamp: new Date(),
+  //   ipAddress,
+  //   userAgent,
+  // });
+
+  return this.save();
+};
 
 const User = mongoose.model("User", userSchema);
+
 export default User;

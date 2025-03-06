@@ -1,28 +1,53 @@
 import Restaurant from "../models/Restaurant.js";
 import { successResponse, errorResponse } from "../utils/responseHandler.js";
 import mongoose from "mongoose";
+import { filePathToUrl } from "../middlewares/uploadMiddleware.js";
 
 export const createRestaurant = async (req, res) => {
   try {
-    // Ensure only vendors can create restaurants
-    if (req.user.role !== "vendor") {
-      return errorResponse(res, "Only vendors can create restaurants", 403);
-    }
-
-    // Assign the authenticated user as the restaurant owner
     const restaurantData = {
       ...req.body,
       owner: req.user._id,
     };
 
-    // Handle uploaded images
-    if (req.files && req.files.length > 0) {
-      restaurantData.images = req.files.map(
-        (file) => `/uploads/restaurants/${file.filename}`
+    // Ensure only vendors can create restaurants
+    if (req.user.role !== "vendor") {
+      return errorResponse(res, "Only vendors can create restaurants", 403);
+    }
+
+    // Handle address as an object or string
+    if (restaurantData.address && typeof restaurantData.address === "string") {
+      try {
+        restaurantData.address = JSON.parse(restaurantData.address);
+      } catch (e) {
+        return errorResponse(res, "Invalid address format", 400);
+      }
+    }
+
+    // Convert numeric fields
+    if (restaurantData.deliveryFee) {
+      restaurantData.deliveryFee = Number.parseFloat(
+        restaurantData.deliveryFee
       );
     }
 
-    // Save the restaurant
+    if (restaurantData.minimumOrder) {
+      restaurantData.minimumOrder = Number.parseFloat(
+        restaurantData.minimumOrder
+      );
+    }
+
+    if (restaurantData.averagePreparationTime) {
+      restaurantData.averagePreparationTime = Number.parseInt(
+        restaurantData.averagePreparationTime,
+        10
+      );
+    }
+
+    if (req.files && req.files.length > 0) {
+      restaurantData.images = req.files.map((file) => filePathToUrl(file.path));
+    }
+
     const restaurant = new Restaurant(restaurantData);
     await restaurant.save();
 
@@ -95,10 +120,28 @@ export const updateRestaurant = async (req, res) => {
 
     const updateData = { ...req.body };
 
+    // Handle address as an object or string
+    if (updateData.address && typeof updateData.address === "string") {
+      try {
+        updateData.address = JSON.parse(updateData.address);
+      } catch (e) {
+        return errorResponse(res, "Invalid address format", 400);
+      }
+    }
+
+    // Convert numeric fields
+    if (updateData.deliveryFee) {
+      updateData.deliveryFee = Number.parseFloat(updateData.deliveryFee);
+    }
+
+    if (updateData.minimumOrder) {
+      updateData.minimumOrder = Number.parseFloat(updateData.minimumOrder);
+    }
+
     if (req.files && req.files.length > 0) {
       updateData.images = [
-        ...restaurant.images,
-        ...req.files.map((file) => `/uploads/restaurants/${file.filename}`),
+        ...(restaurant.images || []),
+        ...req.files.map((file) => filePathToUrl(file.path)),
       ];
     }
 

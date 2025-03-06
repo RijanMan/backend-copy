@@ -12,7 +12,7 @@ const ALLOWED_ROLES = ["user", "vendor", "rider"];
 
 //  Generates a JWT token for authentication.
 const generateToken = (id) => {
-  return jwt.sign({ id }, process.env.JWT_SECRET, { expiresIn: "7d" }); // Shortened expiry for better security
+  return jwt.sign({ id }, process.env.JWT_SECRET, { expiresIn: "7d" });
 };
 
 //  Registers a new user.

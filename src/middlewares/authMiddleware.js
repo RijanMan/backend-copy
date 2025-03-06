@@ -1,36 +1,42 @@
 import jwt from "jsonwebtoken";
 import User from "../models/User.js";
-import { errorResponse } from "../utils/responseHandler.js"; // Centralized response handling
+import { errorResponse } from "../utils/responseHandler.js";
 
 export const protect = async (req, res, next) => {
   let token;
 
-  // Check if Authorization header exists and starts with "Bearer"
   if (
     req.headers.authorization &&
     req.headers.authorization.startsWith("Bearer")
   ) {
     try {
-      token = req.headers.authorization.split(" ")[1]; // Extract token
-      // Verify token
+      token = req.headers.authorization.split(" ")[1];
+
+      if (!token) {
+        return errorResponse(res, "Not authorized, token is missing", 401);
+      }
+
       const decoded = jwt.verify(token, process.env.JWT_SECRET);
 
-      // Fetch user from DB (excluding password)
+      const currentTimestamp = Math.floor(Date.now() / 1000);
+      if (decoded.exp && decoded.exp < currentTimestamp) {
+        return errorResponse(res, "Token has expired, please login again", 401);
+      }
+
       req.user = await User.findById(decoded.id).select("-password");
 
       next();
     } catch (error) {
-      if (error.name === "TokenExpiredError") {
-        return errorResponse(res, "Token expired, please log in again", 401);
-      } else {
+      console.error("Auth middleware error:", error);
+      if (error.name === "JsonWebTokenError") {
         return errorResponse(res, "Invalid token", 401);
+      } else if (error.name === "TokenExpiredError") {
+        return errorResponse(res, "Token has expired, please login again", 401);
       }
+      errorResponse(res, "Not authorized", 401);
     }
-  }
-
-  // If no token, return an error immediately
-  if (!token) {
-    return errorResponse(res, "Not authorized to access this route", 401);
+  } else {
+    errorResponse(res, "Not authorized, no token provided", 401);
   }
 };
 

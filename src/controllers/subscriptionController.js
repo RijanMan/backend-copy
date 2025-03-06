@@ -6,16 +6,14 @@ export const createSubscription = async (req, res) => {
   try {
     const {
       mealPlanId,
-      selectedMealOptions,
-      dietaryPreferences,
-      allergies,
-      customizations,
       paymentMethod,
       deliveryAddress,
       deliveryInstructions,
+      startDate,
     } = req.body;
 
     const mealPlan = await MealPlan.findById(mealPlanId);
+
     if (!mealPlan) {
       return errorResponse(res, "Meal plan not found", 404);
     }
@@ -35,23 +33,25 @@ export const createSubscription = async (req, res) => {
       );
     }
 
-    const startDate = new Date();
-    const endDate = new Date(startDate);
-    if (mealPlan.duration === "weekly") {
+    const start = startDate ? new Date(startDate) : new Date();
+    const endDate = new Date(start);
+
+    if (mealPlan.duration === "daily") {
+      endDate.setDate(endDate.getDate() + 1);
+    } else if (mealPlan.duration === "weekly") {
       endDate.setDate(endDate.getDate() + 7);
     } else if (mealPlan.duration === "monthly") {
       endDate.setMonth(endDate.getMonth() + 1);
     }
 
+    const renewalDate = new Date(endDate);
+
     const subscription = new Subscription({
       user: req.user._id,
       mealPlan: mealPlanId,
-      startDate,
+      startDate: start,
       endDate,
-      selectedMealOptions,
-      dietaryPreferences,
-      allergies,
-      customizations,
+      renewalDate,
       paymentMethod,
       deliveryAddress,
       deliveryInstructions,
@@ -197,6 +197,7 @@ export const cancelSubscription = async (req, res) => {
 export const pauseSubscription = async (req, res) => {
   try {
     const { id } = req.params;
+    const { resumeDate } = req.body;
 
     const subscription = await Subscription.findById(id);
     if (!subscription) {
@@ -216,6 +217,15 @@ export const pauseSubscription = async (req, res) => {
     }
 
     subscription.status = "paused";
+
+    if (resumeDate) {
+      const resumeDateObj = new Date(resumeDate);
+      if (!subscription.skipDates) {
+        subscription.skipDates = [];
+      }
+      subscription.skipDates.push(resumeDateObj);
+    }
+
     await subscription.save();
 
     successResponse(res, subscription, "Subscription paused successfully");

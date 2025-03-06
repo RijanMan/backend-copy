@@ -18,7 +18,11 @@ import paymentRoutes from "./src/routes/paymentRoutes.js"; // Import paymentRout
 import notificationRoutes from "./src/routes/notificationRoutes.js"; //Import notificationRoutes
 import riderRoutes from "./src/routes/riderRoutes.js"; // Import riderRoutes
 import adminRoutes from "./src/routes/adminRoutes.js"; // Import adminRoutes
+import uploadRoutes from "./src/routes/uploadRoutes.js";
 import { apiLimiter } from "./src/middlewares/rateLimitMiddleware.js";
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 dotenv.config();
 
@@ -34,10 +38,14 @@ app.use(express.urlencoded({ extended: true }));
 // Add rate limiting middleware
 app.use("/api/", apiLimiter);
 
-// Serve static assets in production
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
-app.use("/uploads", express.static(path.join(__dirname, "../uploads")));
+// Configure static file serving directly
+const uploadsPath = path.join(__dirname, "../uploads");
+app.use("/uploads", express.static(uploadsPath));
+
+// Test route
+app.get("/", (req, res) => {
+  res.send({ message: "Hello from DineDash Server!" });
+});
 
 // Routes
 app.use("/api/auth", authRoutes);
@@ -52,14 +60,10 @@ app.use("/api/payments", paymentRoutes);
 app.use("/api/notifications", notificationRoutes);
 app.use("/api/riders", riderRoutes);
 app.use("/api/admin", adminRoutes);
+app.use("/api/upload", uploadRoutes);
 
 app.use(notFound);
 app.use(errorHandler);
-
-// Test route
-app.get("/", (req, res) => {
-  res.send({ message: "Hello from DineDash Server!" });
-});
 
 // Start the server
 const PORT = process.env.PORT || 5000;

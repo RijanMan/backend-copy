@@ -20,32 +20,17 @@ const subscriptionSchema = new mongoose.Schema(
       type: Date,
       required: true,
     },
-    selectedMealOptions: [
-      {
-        type: String,
-        enum: ["morning", "evening"],
-        required: true,
-      },
-    ],
-    dietaryPreferences: [
-      {
-        type: String,
-        enum: ["vegetarian", "vegan", "lactose-free", "gluten-free"],
-      },
-    ],
-    allergies: [String],
-    customizations: {
-      type: Map,
-      of: String,
-      default: {},
+    deliveryAddress: {
+      street: { type: String, required: true },
+      city: { type: String, required: true },
+      state: { type: String, required: true },
+      zipCode: { type: String, required: true },
     },
+    deliveryInstructions: String,
     status: {
       type: String,
       enum: ["active", "paused", "cancelled", "completed"],
       default: "active",
-    },
-    renewalDate: {
-      type: Date,
     },
     paymentMethod: {
       type: String,
@@ -57,18 +42,13 @@ const subscriptionSchema = new mongoose.Schema(
       enum: ["pending", "completed", "failed"],
       default: "pending",
     },
-    deliveryAddress: {
-      street: { type: String, required: true },
-      city: { type: String, required: true },
-      state: { type: String, required: true },
-      zipCode: { type: String, required: true },
-    },
-    deliveryInstructions: String,
+
     totalAmount: {
       type: Number,
       required: true,
-      min: [0, "Amount cannot be negative"],
     },
+    skipDates: [Date],
+    renewalDate: Date,
   },
   { timestamps: true }
 );

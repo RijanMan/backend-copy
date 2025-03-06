@@ -1,5 +1,6 @@
 import User from "../models/User.js";
 import { successResponse, errorResponse } from "../utils/responseHandler.js";
+import { filePathToUrl } from "../middlewares/uploadMiddleware.js";
 
 // Get user profile
 export const getUserProfile = async (req, res) => {
@@ -19,33 +20,15 @@ export const getUserProfile = async (req, res) => {
       profilePicture: user.profilePicture,
     };
 
-    switch (user.role?.toLowerCase()) {
-      case "admin":
-        profileData = {
-          ...profileData,
-          adminDepartment: user.adminDepartment,
-          adminAccessLevel: user.adminAccessLevel,
-        };
-        break;
-      case "vendor":
-        profileData = {
-          ...profileData,
-          RestaurantName: user.RestaurantName,
-          RestaurantDetail: user.ownedRestaurants,
-        };
-        break;
-      case "rider":
-        profileData = {
-          ...profileData,
-          licenseNumber: user.licenseNumber,
-        };
-        break;
-      case "user":
-        profileData = {
-          ...profileData,
-          Preferences: user.preferences,
-        };
-        break;
+    if (user.role === "admin") {
+      profileData;
+    } else if (user.role === "vendor") {
+      profileData.RestaurantName = user.RestaurantName;
+      profileData.ownedRestaurants = user.ownedRestaurants;
+    } else if (user.role === "rider") {
+      profileData.licenseNumber = user.licenseNumber;
+    } else if (user.role === "user") {
+      profileData.favoriteRestaurants = user.favoriteRestaurants;
     }
 
     successResponse(res, profileData, "User profile retrieved successfully");
@@ -65,21 +48,33 @@ export const updateUserProfile = async (req, res) => {
     // Common Fields
     user.name = req.body.name || user.name;
     user.email = req.body.email || user.email;
+    user.phoneNumber = req.body.phoneNumber || user.phoneNumber;
+
+    // Handle address as an object or string
+    if (req.body.address) {
+      if (typeof req.body.address === "string") {
+        try {
+          user.address = JSON.parse(req.body.address);
+        } catch (e) {
+          // If parsing fails, keep the address as is
+          console.error("Error parsing address:", e);
+        }
+      } else {
+        user.address = req.body.address;
+      }
+    }
+
     if (req.body.password) {
       user.password = req.body.password;
     }
-    user.address = req.body.address || user.address;
-    user.phoneNumber = req.body.phoneNumber || user.phoneNumber;
 
     if (req.file) {
-      user.profilePicture = `/uploads/profiles/${req.file.filename}`;
+      user.profilePicture = filePathToUrl(req.file.path);
     }
 
     switch (user.role) {
       case "admin":
-        user.adminDepartment = req.body.adminDepartment || user.adminDepartment;
-        user.adminAccessLevel =
-          req.body.adminAccessLevel || user.adminAccessLevel;
+        // No action need for admin
         break;
       case "vendor":
         user.RestaurantName = req.body.RestaurantName || user.RestaurantName;
@@ -88,12 +83,49 @@ export const updateUserProfile = async (req, res) => {
         user.licenseNumber = req.body.licenseNumber || user.licenseNumber;
         break;
       case "user":
-        user.preferences = req.body.preferences || user.preferences;
+        if (req.body.favoriteRestaurants) {
+          if (typeof req.body.favoriteRestaurants === "string") {
+            user.favoriteRestaurants = req.body.favoriteRestaurants
+              .split(",")
+              .map((item) => item.trim())
+              .filter((item) => item);
+          } else {
+            user.favoriteRestaurants = req.body.favoriteRestaurants;
+          }
+        }
         break;
     }
 
     const updatedUser = await user.save();
-    successResponse(res, updatedUser, "User profile updated successfully");
+    const userResponse = updatedUser.toObject();
+    delete userResponse.password;
+
+    // Remove sensitive and unnecessary fields
+    delete userResponse.resetPasswordToken;
+    delete userResponse.resetPasswordExpires;
+    delete userResponse.loginHistory;
+    delete userResponse.totalEarnings;
+    delete userResponse.ratings;
+    delete userResponse.ownedRestaurants;
+
+    // Remove unrelated role-specific fields
+    // if (userResponse.role !== "admin") {
+    //   delete userResponse.adminDepartment;
+    //   delete userResponse.adminAccessLevel;
+    // }
+    if (userResponse.role !== "vendor") {
+      delete userResponse.RestaurantName;
+      delete userResponse.ownedRestaurants;
+      delete userResponse.totalEarnings;
+    }
+    if (userResponse.role !== "rider") {
+      delete userResponse.licenseNumber;
+    }
+    if (userResponse.role !== "user") {
+      delete userResponse.favoriteRestaurants;
+    }
+
+    successResponse(res, userResponse, "User profile updated successfully");
   } catch (error) {
     return errorResponse(res, "Server error", 500);
   }
@@ -133,36 +165,6 @@ export const deleteUser = async (req, res) => {
     successResponse(res, {}, "User deleted successfully");
   } catch (error) {
     return errorResponse(res, "Server error", 500);
-  }
-};
-
-export const updateUserPreferences = async (req, res) => {
-  try {
-    const user = await User.findById(req.user._id);
-    if (!user) {
-      return errorResponse(res, "User not found", 404);
-    }
-
-    const { dietaryRestrictions, favoriteCuisines, spicyPreference } = req.body;
-
-    if (dietaryRestrictions) {
-      user.preferences.dietaryRestrictions = dietaryRestrictions;
-    }
-    if (favoriteCuisines) {
-      user.preferences.favoriteCuisines = favoriteCuisines;
-    }
-    if (spicyPreference !== undefined) {
-      user.preferences.spicyPreference = spicyPreference;
-    }
-
-    await user.save();
-    successResponse(
-      res,
-      user.preferences,
-      "User preferences updated successfully"
-    );
-  } catch (error) {
-    errorResponse(res, error.message, 500);
   }
 };
 
@@ -209,25 +211,6 @@ export const removeFavoriteRestaurant = async (req, res) => {
       res,
       user.preferences.favoriteRestaurants,
       "Favorite restaurant removed successfully"
-    );
-  } catch (error) {
-    errorResponse(res, error.message, 500);
-  }
-};
-
-export const getUserPreferences = async (req, res) => {
-  try {
-    const user = await User.findById(req.user._id).populate(
-      "preferences.favoriteRestaurants"
-    );
-    if (!user) {
-      return errorResponse(res, "User not found", 404);
-    }
-
-    successResponse(
-      res,
-      user.preferences,
-      "User preferences retrieved successfully"
     );
   } catch (error) {
     errorResponse(res, error.message, 500);

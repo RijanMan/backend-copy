@@ -25,6 +25,8 @@ export const Admin = async () => {
       password: hashedPassword,
       role: "admin",
       isEmailVerified: true,
+      adminDepartment: "operations",
+      adminAccessLevel: 5,
     });
 
     await adminUser.save();

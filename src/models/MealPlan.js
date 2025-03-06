@@ -30,33 +30,44 @@ const mealPlanSchema = new mongoose.Schema(
       required: [true, "Price is required"],
       min: [0, "Price cannot be negative"],
     },
-    mealOptions: [
-      {
-        type: String,
-        enum: ["morning", "evening", "both"],
-        required: [true, "At least one meal option is required"],
-      },
-    ],
-    dietaryOptions: [
-      {
-        type: String,
-        enum: ["vegetarian", "vegan", "lactose-free", "gluten-free"],
-      },
-    ],
-    customizationAllowed: {
-      type: Boolean,
-      default: true,
+    mealType: {
+      type: String,
+      enum: ["breakfast", "lunch", "dinner", "full-day"],
+      required: [true, "Meal type is required"],
+    },
+    mealTime: {
+      type: String,
+      required: [true, "Meal delivery time is required"],
+    },
+    dietaryOptions: {
+      type: String,
+      enum: ["vegetarian", "vegan", "non-vegetarian"],
+      default: "vegetarian",
+      required: [true, "Dietary option is required"],
+    },
+    portionSize: {
+      type: String,
+      enum: ["small", "medium", "large"],
+      default: "medium",
     },
     isActive: {
       type: Boolean,
       default: true,
     },
-    menuItems: [
-      {
-        type: mongoose.Schema.Types.ObjectId,
-        ref: "Menu.items",
-      },
-    ],
+    availableDays: {
+      type: [String],
+      enum: [
+        "monday",
+        "tuesday",
+        "wednesday",
+        "thursday",
+        "friday",
+        "saturday",
+        "sunday",
+      ],
+      default: ["monday", "tuesday", "wednesday", "thursday", "friday"],
+    },
+
     maxSubscribers: {
       type: Number,
       min: 1,

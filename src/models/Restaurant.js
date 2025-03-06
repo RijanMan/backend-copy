@@ -40,15 +40,7 @@ const restaurantSchema = new mongoose.Schema(
       type: Boolean,
       default: true,
     },
-    openingHours: {
-      monday: { open: String, close: String },
-      tuesday: { open: String, close: String },
-      wednesday: { open: String, close: String },
-      thursday: { open: String, close: String },
-      friday: { open: String, close: String },
-      saturday: { open: String, close: String },
-      sunday: { open: String, close: String },
-    },
+
     description: {
       type: String,
       maxlength: [500, "Description cannot exceed 500 characters"],
@@ -56,16 +48,11 @@ const restaurantSchema = new mongoose.Schema(
     images: {
       type: [String],
     },
-    tags: [String],
     deliveryFee: {
       type: Number,
       min: 0,
     },
     minimumOrder: {
-      type: Number,
-      min: 0,
-    },
-    averagePreparationTime: {
       type: Number,
       min: 0,
     },
