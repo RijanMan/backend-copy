@@ -1,5 +1,6 @@
 import Restaurant from "../models/Restaurant.js";
 import Order from "../models/Order.js";
+import Subscription from "../models/Subscription.js";
 import { successResponse, errorResponse } from "../utils/responseHandler.js";
 
 export const getRestaurantAnalytics = async (req, res) => {
@@ -19,44 +20,54 @@ export const getRestaurantAnalytics = async (req, res) => {
       );
     }
 
-    const query = { restaurant: restaurantId };
+    // Build date range query
+    const dateQuery = {};
     if (startDate && endDate) {
-      query.createdAt = {
+      dateQuery.createdAt = {
         $gte: new Date(startDate),
         $lte: new Date(endDate),
       };
     }
 
-    const orders = await Order.find(query);
-
-    const totalOrders = orders.length;
-    const totalRevenue = orders.reduce(
-      (sum, order) => sum + order.totalAmount,
-      0
-    );
-    const averageOrderValue = totalOrders > 0 ? totalRevenue / totalOrders : 0;
-
-    const itemsSold = {};
-    orders.forEach((order) => {
-      order.items.forEach((item) => {
-        if (itemsSold[item.name]) {
-          itemsSold[item.name] += item.quantity;
-        } else {
-          itemsSold[item.name] = item.quantity;
-        }
-      });
+    // Get orders data
+    const orders = await Order.find({
+      restaurant: restaurantId,
+      ...dateQuery,
     });
 
-    const topSellingItems = Object.entries(itemsSold)
-      .sort((a, b) => b[1] - a[1])
-      .slice(0, 5)
-      .map(([name, quantity]) => ({ name, quantity }));
+    // Get subscription data
+    const subscriptions = await Subscription.find({
+      mealPlan: { $in: await getMealPlanIds(restaurantId) },
+      ...dateQuery,
+    });
+
+    // Calculate basic metrics
+    const totalOrders = orders.length;
+    const totalSubscriptions = subscriptions.length;
+    const totalRevenue =
+      orders.reduce((sum, order) => sum + order.totalAmount, 0) +
+      subscriptions.reduce((sum, sub) => sum + sub.totalAmount, 0);
+
+    const activeSubscriptions = subscriptions.filter(
+      (sub) => sub.status === "active"
+    ).length;
+    const averageOrderValue =
+      totalOrders > 0
+        ? orders.reduce((sum, order) => sum + order.totalAmount, 0) /
+          totalOrders
+        : 0;
 
     const analytics = {
       totalOrders,
+      totalSubscriptions,
+      activeSubscriptions,
       totalRevenue,
       averageOrderValue,
-      topSellingItems,
+      subscriptionRevenue: subscriptions.reduce(
+        (sum, sub) => sum + sub.totalAmount,
+        0
+      ),
+      orderRevenue: orders.reduce((sum, order) => sum + order.totalAmount, 0),
     };
 
     successResponse(
@@ -67,6 +78,13 @@ export const getRestaurantAnalytics = async (req, res) => {
   } catch (error) {
     errorResponse(res, error.message, 400);
   }
+};
+
+// Helper function to get meal plan IDs for a restaurant
+const getMealPlanIds = async (restaurantId) => {
+  const { default: MealPlan } = await import("../models/MealPlan.js");
+  const mealPlans = await MealPlan.find({ restaurant: restaurantId });
+  return mealPlans.map((plan) => plan._id);
 };
 
 export const getRestaurantReport = async (req, res) => {
@@ -86,66 +104,57 @@ export const getRestaurantReport = async (req, res) => {
       );
     }
 
-    const query = { restaurant: restaurantId };
+    // Build date range query
+    const dateQuery = {};
     if (startDate && endDate) {
-      query.createdAt = {
+      dateQuery.createdAt = {
         $gte: new Date(startDate),
         $lte: new Date(endDate),
       };
     }
 
-    const orders = await Order.find(query).sort({ createdAt: -1 });
+    // Get orders
+    const orders = await Order.find({
+      restaurant: restaurantId,
+      ...dateQuery,
+    }).sort({ createdAt: -1 });
+
+    // Get subscriptions
+    const subscriptions = await Subscription.find({
+      mealPlan: { $in: await getMealPlanIds(restaurantId) },
+      ...dateQuery,
+    }).sort({ createdAt: -1 });
 
     const report = {
       restaurantName: restaurant.name,
       period: { startDate, endDate },
-      totalOrders: orders.length,
-      totalRevenue: orders.reduce((sum, order) => sum + order.totalAmount, 0),
-      ordersByStatus: {
-        pending: orders.filter((order) => order.status === "pending").length,
-        preparing: orders.filter((order) => order.status === "preparing")
-          .length,
-        out_for_delivery: orders.filter(
-          (order) => order.status === "out_for_delivery"
-        ).length,
-        delivered: orders.filter((order) => order.status === "delivered")
-          .length,
-        cancelled: orders.filter((order) => order.status === "cancelled")
+      orders: {
+        total: orders.length,
+        revenue: orders.reduce((sum, order) => sum + order.totalAmount, 0),
+        byStatus: {
+          pending: orders.filter((order) => order.status === "pending").length,
+          preparing: orders.filter((order) => order.status === "preparing")
+            .length,
+          out_for_delivery: orders.filter(
+            (order) => order.status === "on the way"
+          ).length,
+          delivered: orders.filter((order) => order.status === "delivered")
+            .length,
+          cancelled: orders.filter((order) => order.status === "cancelled")
+            .length,
+        },
+      },
+      subscriptions: {
+        total: subscriptions.length,
+        revenue: subscriptions.reduce((sum, sub) => sum + sub.totalAmount, 0),
+        active: subscriptions.filter((sub) => sub.status === "active").length,
+        paused: subscriptions.filter((sub) => sub.status === "paused").length,
+        cancelled: subscriptions.filter((sub) => sub.status === "cancelled")
           .length,
       },
     };
 
     successResponse(res, report, "Restaurant report generated successfully");
-  } catch (error) {
-    errorResponse(res, error.message, 400);
-  }
-};
-
-export const updateRestaurantHours = async (req, res) => {
-  try {
-    const { restaurantId } = req.params;
-    const { openingHours } = req.body;
-
-    const restaurant = await Restaurant.findById(restaurantId);
-    if (
-      !restaurant ||
-      restaurant.owner.toString() !== req.user._id.toString()
-    ) {
-      return errorResponse(
-        res,
-        "Restaurant not found or you're not authorized",
-        404
-      );
-    }
-
-    restaurant.openingHours = openingHours;
-    await restaurant.save();
-
-    successResponse(
-      res,
-      restaurant.openingHours,
-      "Restaurant hours updated successfully"
-    );
   } catch (error) {
     errorResponse(res, error.message, 400);
   }

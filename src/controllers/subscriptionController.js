@@ -197,7 +197,6 @@ export const cancelSubscription = async (req, res) => {
 export const pauseSubscription = async (req, res) => {
   try {
     const { id } = req.params;
-    const { resumeDate } = req.body;
 
     const subscription = await Subscription.findById(id);
     if (!subscription) {
@@ -217,14 +216,6 @@ export const pauseSubscription = async (req, res) => {
     }
 
     subscription.status = "paused";
-
-    if (resumeDate) {
-      const resumeDateObj = new Date(resumeDate);
-      if (!subscription.skipDates) {
-        subscription.skipDates = [];
-      }
-      subscription.skipDates.push(resumeDateObj);
-    }
 
     await subscription.save();
 

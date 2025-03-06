@@ -1,13 +1,17 @@
 import User from "../models/User.js";
 import Restaurant from "../models/Restaurant.js";
 import Order from "../models/Order.js";
+import Subscription from "../models/Subscription.js";
 import { successResponse, errorResponse } from "../utils/responseHandler.js";
 
 export const getSystemAnalytics = async (req, res) => {
   try {
     const totalUsers = await User.countDocuments();
+    const totalVendors = await User.countDocuments({ role: "user" });
     const totalRestaurants = await Restaurant.countDocuments();
+    const totalRiders = await User.countDocuments({ role: "rider" });
     const totalOrders = await Order.countDocuments();
+    const totalSubscriptions = await Subscription.countDocuments();
 
     const recentOrders = await Order.find()
       .sort({ createdAt: -1 })
@@ -15,16 +19,41 @@ export const getSystemAnalytics = async (req, res) => {
       .populate("user", "name")
       .populate("restaurant", "name");
 
-    const totalRevenue = await Order.aggregate([
+    const orderRevenue = await Order.aggregate([
       { $group: { _id: null, total: { $sum: "$totalAmount" } } },
     ]);
 
+    const subscriptionRevenue = await Subscription.aggregate([
+      { $group: { _id: null, total: { $sum: "$totalAmount" } } },
+    ]);
+
+    const totalRevenue =
+      (orderRevenue[0]?.total || 0) + (subscriptionRevenue[0]?.total || 0);
+
+    // Get active subscriptions
+    const activeSubscriptions = await Subscription.countDocuments({
+      status: "active",
+    });
+
     const analytics = {
-      totalUsers,
-      totalRestaurants,
-      totalOrders,
+      users: {
+        total: totalUsers + totalVendors + totalRiders,
+        customers: totalUsers,
+        vendors: totalVendors,
+        riders: totalRiders,
+      },
+      restaurants: totalRestaurants,
+      orders: totalOrders,
+      subscriptions: {
+        total: totalSubscriptions,
+        active: activeSubscriptions,
+      },
+      revenue: {
+        total: totalRevenue,
+        orders: orderRevenue[0]?.total || 0,
+        subscriptions: subscriptionRevenue[0]?.total || 0,
+      },
       recentOrders,
-      totalRevenue: totalRevenue[0]?.total || 0,
     };
 
     successResponse(res, analytics, "System analytics retrieved successfully");

@@ -24,31 +24,6 @@ export const updateAvailability = async (req, res) => {
   }
 };
 
-export const updateLocation = async (req, res) => {
-  try {
-    const { latitude, longitude } = req.body;
-    const rider = await User.findById(req.user._id);
-
-    if (!rider || rider.role !== "rider") {
-      return errorResponse(res, "Rider not found", 404);
-    }
-
-    rider.currentLocation = {
-      type: "Point",
-      coordinates: [longitude, latitude],
-    };
-    await rider.save();
-
-    successResponse(
-      res,
-      { location: rider.currentLocation },
-      "Location updated successfully"
-    );
-  } catch (error) {
-    errorResponse(res, error.message, 400);
-  }
-};
-
 export const getAvailableOrders = async (req, res) => {
   try {
     const rider = await User.findById(req.user._id);
@@ -133,7 +108,7 @@ export const updateOrderStatus = async (req, res) => {
   }
 };
 
-export const getRiderEarnings = async (req, res) => {
+export const getRiderOrders = async (req, res) => {
   try {
     const rider = await User.findById(req.user._id);
 
@@ -141,29 +116,55 @@ export const getRiderEarnings = async (req, res) => {
       return errorResponse(res, "Rider not found", 404);
     }
 
-    const { startDate, endDate } = req.query;
-    const query = { rider: rider._id, status: "delivered" };
+    const { status } = req.query;
+    const query = { rider: rider._id };
 
-    if (startDate && endDate) {
-      query.deliveredAt = {
-        $gte: new Date(startDate),
-        $lte: new Date(endDate),
-      };
+    if (status) {
+      query.status = status;
     }
 
-    const completedOrders = await Order.find(query);
+    const orders = await Order.find(query)
+      .populate("restaurant", "name address")
+      .populate("user", "name")
+      .sort({ createdAt: -1 });
 
-    const earnings = completedOrders.reduce(
-      (total, order) => total + order.deliveryFee,
-      0
-    );
-
-    successResponse(
-      res,
-      { earnings, completedOrders },
-      "Rider earnings retrieved successfully"
-    );
+    successResponse(res, orders, "Rider orders retrieved successfully");
   } catch (error) {
     errorResponse(res, error.message, 400);
   }
 };
+
+// export const getRiderEarnings = async (req, res) => {
+//   try {
+//     const rider = await User.findById(req.user._id);
+
+//     if (!rider || rider.role !== "rider") {
+//       return errorResponse(res, "Rider not found", 404);
+//     }
+
+//     const { startDate, endDate } = req.query;
+//     const query = { rider: rider._id, status: "delivered" };
+
+//     if (startDate && endDate) {
+//       query.deliveredAt = {
+//         $gte: new Date(startDate),
+//         $lte: new Date(endDate),
+//       };
+//     }
+
+//     const completedOrders = await Order.find(query);
+
+//     const earnings = completedOrders.reduce(
+//       (total, order) => total + order.deliveryFee,
+//       0
+//     );
+
+//     successResponse(
+//       res,
+//       { earnings, completedOrders },
+//       "Rider earnings retrieved successfully"
+//     );
+//   } catch (error) {
+//     errorResponse(res, error.message, 400);
+//   }
+// };
