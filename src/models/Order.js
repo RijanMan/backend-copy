@@ -1,9 +1,13 @@
 import mongoose from "mongoose";
 
 const orderItemSchema = new mongoose.Schema({
-  menuItem: {
+  itemId: {
     type: mongoose.Schema.Types.ObjectId,
     ref: "Menu.items",
+    required: true,
+  },
+  name: {
+    type: String,
     required: true,
   },
   quantity: {
@@ -14,10 +18,6 @@ const orderItemSchema = new mongoose.Schema({
   price: {
     type: Number,
     required: true,
-  },
-  specialInstructions: {
-    type: String,
-    maxlength: [200, "Special instructions cannot exceed 200 characters"],
   },
 });
 
@@ -33,15 +33,21 @@ const orderSchema = new mongoose.Schema(
       ref: "Restaurant",
       required: true,
     },
+    subscription: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Subscription",
+      default: null,
+    },
     items: [orderItemSchema],
     totalAmount: {
       type: Number,
       required: true,
     },
-    status: {
-      type: String,
-      enum: ["pending", "preparing", "on the way", "delivered", "cancelled"],
-      default: "pending",
+    deliveryAddress: {
+      street: { type: String, required: true },
+      city: { type: String, required: true },
+      state: { type: String, required: true },
+      zipCode: { type: String, required: true },
     },
     paymentMethod: {
       type: String,
@@ -53,19 +59,47 @@ const orderSchema = new mongoose.Schema(
       enum: ["pending", "completed", "failed"],
       default: "pending",
     },
-    deliveryAddress: {
-      street: { type: String, required: true },
-      city: { type: String, required: true },
-      state: { type: String, required: true },
-      zipCode: { type: String, required: true },
+    deliveryInstructions: {
+      type: String,
     },
-    rider: {
-      type: mongoose.Schema.Types.ObjectId,
-      ref: "User",
+    specialRequests: {
+      type: String,
     },
-    estimatedDeliveryTime: Date,
-    actualDeliveryTime: Date,
-    specialInstructions: String,
+    status: {
+      type: String,
+      enum: ["pending", "preparing", "on the way", "delivered", "cancelled"],
+      default: "pending",
+    },
+
+    estimatedDeliveryTime: {
+      type: Date,
+    },
+    deliveredAt: {
+      type: Date,
+    },
+    cancelledAt: {
+      type: Date,
+    },
+    cancellationReason: {
+      type: String,
+    },
+    scheduledFor: {
+      type: Date,
+      default: Date.now,
+    },
+    dayOfWeek: {
+      type: String,
+      enum: ["sunday", "monday", "tuesday", "wednesday", "thursday", "friday"],
+    },
+    mealTime: {
+      type: String,
+      enum: ["morning", "evening"],
+    },
+    dietType: {
+      type: String,
+      enum: ["vegetarian", "vegan", "non-vegetarian"],
+    },
+
     rating: {
       type: Number,
       min: 1,
@@ -75,14 +109,6 @@ const orderSchema = new mongoose.Schema(
     subscription: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "Subscription",
-    },
-    isRecurring: {
-      type: Boolean,
-      default: false,
-    },
-    deliveryDate: {
-      type: Date,
-      default: Date.now,
     },
   },
   { timestamps: true }

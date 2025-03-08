@@ -15,6 +15,24 @@ export const createRestaurant = async (req, res) => {
       return errorResponse(res, "Only vendors can create restaurants", 403);
     }
 
+    // Check if the vendor already has a restaurant
+    let restaurant = await Restaurant.findOne({ owner: req.user._id });
+
+    if (restaurant) {
+      // If the vendor already has a restaurant, update the existing one
+      restaurant = Object.assign(restaurant, restaurantData); // Update restaurant fields
+      if (req.files && req.files.length > 0) {
+        restaurant.images = req.files.map((file) => filePathToUrl(file.path));
+      }
+      await restaurant.save();
+      return successResponse(
+        res,
+        restaurant,
+        "Restaurant updated successfully",
+        200
+      );
+    }
+
     // Handle address as an object or string
     if (restaurantData.address && typeof restaurantData.address === "string") {
       try {
@@ -48,7 +66,7 @@ export const createRestaurant = async (req, res) => {
       restaurantData.images = req.files.map((file) => filePathToUrl(file.path));
     }
 
-    const restaurant = new Restaurant(restaurantData);
+    restaurant = new Restaurant(restaurantData);
     await restaurant.save();
 
     successResponse(res, restaurant, "Restaurant created successfully", 201);

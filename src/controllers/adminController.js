@@ -7,7 +7,7 @@ import { successResponse, errorResponse } from "../utils/responseHandler.js";
 export const getSystemAnalytics = async (req, res) => {
   try {
     const totalUsers = await User.countDocuments();
-    const totalVendors = await User.countDocuments({ role: "user" });
+    const totalVendors = await User.countDocuments({ role: "vendor" });
     const totalRestaurants = await Restaurant.countDocuments();
     const totalRiders = await User.countDocuments({ role: "rider" });
     const totalOrders = await Order.countDocuments();

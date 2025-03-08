@@ -5,6 +5,7 @@ import path from "path";
 import { fileURLToPath } from "url";
 import connectDB from "./src/config/db.js";
 import { errorHandler, notFound } from "./src/middlewares/errorMiddleware.js";
+import { initCronJobs } from "./src/services/cronService.js";
 
 import authRoutes from "./src/routes/authRoutes.js"; // Import authRoutes
 import userRoutes from "./src/routes/userRoutes.js"; // Import userRoutes
@@ -20,6 +21,7 @@ import riderRoutes from "./src/routes/riderRoutes.js"; // Import riderRoutes
 import adminRoutes from "./src/routes/adminRoutes.js"; // Import adminRoutes
 import uploadRoutes from "./src/routes/uploadRoutes.js";
 import { apiLimiter } from "./src/middlewares/rateLimitMiddleware.js";
+import customizationRequestRoutes from "./src/routes/customizationRequestRoutes.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -61,6 +63,7 @@ app.use("/api/notifications", notificationRoutes);
 app.use("/api/riders", riderRoutes);
 app.use("/api/admin", adminRoutes);
 app.use("/api/upload", uploadRoutes);
+app.use("/api/customization-requests", customizationRequestRoutes);
 
 app.use(notFound);
 app.use(errorHandler);
@@ -70,4 +73,6 @@ const PORT = process.env.PORT || 5000;
 
 app.listen(PORT, async () => {
   console.log(`Server started on http://localhost:${PORT}`);
+
+  initCronJobs();
 });

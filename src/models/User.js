@@ -148,18 +148,6 @@ userSchema.methods.generatePasswordResetToken = function () {
 
 userSchema.methods.trackLogin = async function (ipAddress, userAgent) {
   this.lastLogin = new Date();
-
-  // Keep only the last 10 logins
-  // if (this.loginHistory && this.loginHistory.length >= 10) {
-  //   this.loginHistory = this.loginHistory.slice(-9);
-  // }
-
-  // this.loginHistory.push({
-  //   timestamp: new Date(),
-  //   ipAddress,
-  //   userAgent,
-  // });
-
   return this.save();
 };
 

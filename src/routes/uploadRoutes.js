@@ -26,13 +26,16 @@ router.post(
   uploadProfileImage,
   uploadProfileImageController
 );
+
 router.post(
   "/restaurant",
   protect,
   uploadRestaurantImages,
   uploadRestaurantImagesController
 );
+
 router.post("/menu", protect, uploadMenuImage, uploadMenuImageController);
+
 router.post("/document", protect, uploadDocument, uploadDocumentController);
 
 export default router;

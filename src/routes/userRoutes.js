@@ -9,15 +9,14 @@ import {
   getAllUsers,
   getUserById,
   deleteUser,
-  updateUserPreferences,
   addFavoriteRestaurant,
   removeFavoriteRestaurant,
-  getUserPreferences,
 } from "../controllers/userController.js";
 
 const router = express.Router();
 
 router.get("/profile", protect, getUserProfile);
+
 router.put(
   "/profile",
   protect,
@@ -53,33 +52,12 @@ router.put(
       .if(body("role").equals("rider")),
 
     // Customer-specific fields (preferences)
-    body("preferences").optional().isObject().if(body("role").equals("user")),
-    body("preferences.dietaryRestrictions")
-      .optional()
-      .isArray()
-      .if(body("role").equals("user")),
     body("preferences.favoriteCuisines")
       .optional()
       .isArray()
       .if(body("role").equals("user")),
-    body("preferences.spicyPreference")
-      .optional()
-      .isInt({ min: 0, max: 5 })
-      .withMessage("Spicy preference must be between 0 and 5")
-      .if(body("role").equals("user")),
   ]),
   updateUserProfile
-);
-
-router.put(
-  "/preferences",
-  protect,
-  validate([
-    body("dietaryRestrictions").optional().isArray(),
-    body("favoriteCuisines").optional().isArray(),
-    body("spicyPreference").optional().isInt({ min: 0, max: 5 }),
-  ]),
-  updateUserPreferences
 );
 
 router.post(
@@ -91,10 +69,10 @@ router.post(
 
 router.delete("/favorites/:restaurantId", protect, removeFavoriteRestaurant);
 
-router.get("/preferences", protect, getUserPreferences);
-
 router.get("/", protect, authorize("admin"), getAllUsers);
+
 router.get("/:id", protect, authorize("admin"), getUserById);
+
 router.delete("/:id", protect, authorize("admin"), deleteUser);
 
 export default router;

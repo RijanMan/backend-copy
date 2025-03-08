@@ -5,8 +5,12 @@ import { validate } from "../middlewares/validationMiddleware.js";
 import {
   createOrder,
   getUserOrders,
-  getRestaurantOrders,
+  getOrderDetails,
   updateOrderStatus,
+  getRestaurantOrders,
+  cancelOrder,
+  getSubscriptionOrders,
+  getUpcomingSubscriptionOrders,
 } from "../controllers/orderController.js";
 
 const router = express.Router();
@@ -17,29 +21,46 @@ router.post(
   authorize("user"),
   validate([
     body("restaurantId").isMongoId().withMessage("Invalid restaurant ID"),
-    body("items").isArray().withMessage("Items should be an array"),
-    body("items.*.menuItem").isMongoId().withMessage("Invalid menu item ID"),
+    body("items").isArray().withMessage("Items must be an array"),
+    body("items.*.itemId").isMongoId().withMessage("Invalid item ID"),
     body("items.*.quantity")
       .isInt({ min: 1 })
       .withMessage("Quantity must be at least 1"),
-    body("items.*.price").isNumeric().withMessage("Price must be a number"),
-    body("totalAmount")
-      .isNumeric()
-      .withMessage("Total amount must be a number"),
-    body("paymentMethod")
-      .isIn(["cash", "credit card", "debit card", "online payment"])
-      .withMessage("Invalid payment method"),
+    body("deliveryAddress")
+      .isObject()
+      .withMessage("Delivery address must be an object"),
     body("deliveryAddress.street").notEmpty().withMessage("Street is required"),
     body("deliveryAddress.city").notEmpty().withMessage("City is required"),
     body("deliveryAddress.state").notEmpty().withMessage("State is required"),
     body("deliveryAddress.zipCode")
       .notEmpty()
       .withMessage("Zip code is required"),
+    body("paymentMethod")
+      .isIn(["credit card", "debit card", "cash on delivery", "online payment"])
+      .withMessage("Invalid payment method"),
   ]),
   createOrder
 );
 
 router.get("/user", protect, authorize("user"), getUserOrders);
+
+router.get(
+  "/subscription/:subscriptionId",
+  protect,
+  authorize("user"),
+  getSubscriptionOrders
+);
+
+router.get(
+  "/upcoming",
+  protect,
+  authorize("user"),
+  getUpcomingSubscriptionOrders
+);
+
+router.get("/:id", protect, getOrderDetails);
+
+router.post("/:id/cancel", protect, cancelOrder);
 
 router.get(
   "/restaurant/:restaurantId",
@@ -48,14 +69,31 @@ router.get(
   getRestaurantOrders
 );
 
+router.get(
+  "/restaurant/:restaurantId",
+  protect,
+  authorize("vendor"),
+  getRestaurantOrders
+);
 router.put(
-  "/:orderId/status",
+  "/:id/status",
   protect,
   authorize("vendor"),
   validate([
     body("status")
-      .isIn(["pending", "preparing", "on the way", "delivered", "cancelled"])
-      .withMessage("Invalid order status"),
+      .isIn([
+        "pending",
+        "confirmed",
+        "preparing",
+        "out_for_delivery",
+        "delivered",
+        "cancelled",
+      ])
+      .withMessage("Invalid status"),
+    body("estimatedDeliveryTime")
+      .optional()
+      .isISO8601()
+      .withMessage("Invalid date format for estimated delivery time"),
   ]),
   updateOrderStatus
 );

@@ -8,8 +8,6 @@ import {
   getSubscription,
   updateSubscription,
   cancelSubscription,
-  pauseSubscription,
-  resumeSubscription,
 } from "../controllers/subscriptionController.js";
 
 const router = express.Router();
@@ -20,28 +18,15 @@ router.post(
   authorize("user"),
   validate([
     body("mealPlanId").isMongoId().withMessage("Invalid meal plan ID"),
-    body("selectedMealOptions")
+    body("selectedDietType")
+      .isIn(["vegetarian", "vegan", "non-vegetarian"])
+      .withMessage("Invalid diet type"),
+    body("selectedMealTimes")
       .isArray()
-      .withMessage("Selected meal options must be an array"),
-    body("selectedMealOptions.*")
-      .isIn(["morning", "evening"])
-      .withMessage("Invalid meal option"),
-    body("dietaryPreferences")
-      .optional()
-      .isArray()
-      .withMessage("Dietary preferences must be an array"),
-    body("dietaryPreferences.*")
-      .optional()
-      .isIn(["vegetarian", "vegan", "lactose-free", "gluten-free"])
-      .withMessage("Invalid dietary preference"),
-    body("allergies")
-      .optional()
-      .isArray()
-      .withMessage("Allergies must be an array"),
-    body("customizations")
-      .optional()
-      .isObject()
-      .withMessage("Customizations must be an object"),
+      .withMessage("Selected meal times must be an array"),
+    body("selectedMealTimes.*")
+      .isIn(["morning", "evening", "both"])
+      .withMessage("Invalid meal time"),
     body("paymentMethod")
       .isIn(["credit card", "debit card", "online payment"])
       .withMessage("Invalid payment method"),
@@ -63,6 +48,7 @@ router.post(
 );
 
 router.get("/", protect, authorize("user"), getUserSubscriptions);
+
 router.get("/:id", protect, authorize("user"), getSubscription);
 
 router.put(
@@ -70,30 +56,14 @@ router.put(
   protect,
   authorize("user"),
   validate([
-    body("selectedMealOptions")
+    body("selectedMealTimes")
       .optional()
       .isArray()
-      .withMessage("Selected meal options must be an array"),
-    body("selectedMealOptions.*")
+      .withMessage("Selected meal times must be an array"),
+    body("selectedMealTimes.*")
       .optional()
-      .isIn(["morning", "evening"])
-      .withMessage("Invalid meal option"),
-    body("dietaryPreferences")
-      .optional()
-      .isArray()
-      .withMessage("Dietary preferences must be an array"),
-    body("dietaryPreferences.*")
-      .optional()
-      .isIn(["vegetarian", "vegan", "lactose-free", "gluten-free"])
-      .withMessage("Invalid dietary preference"),
-    body("allergies")
-      .optional()
-      .isArray()
-      .withMessage("Allergies must be an array"),
-    body("customizations")
-      .optional()
-      .isObject()
-      .withMessage("Customizations must be an object"),
+      .isIn(["morning", "evening", "both"])
+      .withMessage("Invalid meal time"),
     body("deliveryAddress")
       .optional()
       .isObject()
@@ -107,7 +77,5 @@ router.put(
 );
 
 router.post("/:id/cancel", protect, authorize("user"), cancelSubscription);
-router.post("/:id/pause", protect, authorize("user"), pauseSubscription);
-router.post("/:id/resume", protect, authorize("user"), resumeSubscription);
 
 export default router;

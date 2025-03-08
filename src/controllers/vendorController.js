@@ -83,7 +83,9 @@ export const getRestaurantAnalytics = async (req, res) => {
 // Helper function to get meal plan IDs for a restaurant
 const getMealPlanIds = async (restaurantId) => {
   const { default: MealPlan } = await import("../models/MealPlan.js");
-  const mealPlans = await MealPlan.find({ restaurant: restaurantId });
+  const mealPlans = await MealPlan.find({
+    restaurant: restaurantId,
+  }).schemaLevelProjections("_id");
   return mealPlans.map((plan) => plan._id);
 };
 

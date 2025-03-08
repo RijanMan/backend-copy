@@ -174,7 +174,7 @@ export const handleUploadError = (err, req, res, next) => {
 
 // Specialized upload middlewares for different use cases
 export const uploadProfileImage = (req, res, next) => {
-  upload.single("profileImage")(req, res, (err) => {
+  upload.single("profilePicture")(req, res, (err) => {
     if (err) {
       return handleUploadError(err, req, res, next);
     }

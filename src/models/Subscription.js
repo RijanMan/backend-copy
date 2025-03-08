@@ -20,6 +20,17 @@ const subscriptionSchema = new mongoose.Schema(
       type: Date,
       required: true,
     },
+    selectedDietType: {
+      type: String,
+      enum: ["vegetarian", "vegan", "non-vegetarian"],
+      required: true,
+    },
+    selectedMealTimes: {
+      type: [String],
+      enum: ["morning", "evening", "both"],
+      required: true,
+    },
+
     deliveryAddress: {
       street: { type: String, required: true },
       city: { type: String, required: true },
@@ -27,15 +38,15 @@ const subscriptionSchema = new mongoose.Schema(
       zipCode: { type: String, required: true },
     },
     deliveryInstructions: String,
-    status: {
-      type: String,
-      enum: ["active", "paused", "cancelled", "completed"],
-      default: "active",
-    },
     paymentMethod: {
       type: String,
       enum: ["credit card", "debit card", "online payment"],
       required: true,
+    },
+    status: {
+      type: String,
+      enum: ["active", "paused", "cancelled", "completed"],
+      default: "active",
     },
     paymentStatus: {
       type: String,
@@ -47,7 +58,6 @@ const subscriptionSchema = new mongoose.Schema(
       type: Number,
       required: true,
     },
-    skipDates: [Date],
     renewalDate: Date,
   },
   { timestamps: true }

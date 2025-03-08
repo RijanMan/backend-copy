@@ -30,6 +30,7 @@ router.post(
 );
 
 router.get("/user", protect, authorize("user"), getUserPayments);
+
 router.get("/:id", protect, getPaymentById);
 
 router.put(

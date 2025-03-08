@@ -3,7 +3,7 @@ import dotenv from "dotenv";
 
 dotenv.config();
 
-// Create a transporter using SMTP settings from .env
+// Create reusable transporter
 const createTransporter = () => {
   return nodemailer.createTransport({
     host: process.env.SMTP_HOST,
@@ -32,10 +32,9 @@ const verifyTransporter = async () => {
 // Call verification on module load
 verifyTransporter();
 
-// Function to send verification email
 export const sendVerificationEmail = async (email, token) => {
   try {
-    const verificationUrl = `${process.env.CLIENT_URL}/api/auth/verify-email/${token}`;
+    const verificationUrl = `${process.env.CLIENT_URL}/verify-email/${token}`;
     const transporter = createTransporter();
 
     const mailOptions = {
@@ -97,28 +96,29 @@ export const sendPasswordResetEmail = async (email, resetUrl) => {
   }
 };
 
-// New function to send order confirmation emails
 export const sendOrderConfirmationEmail = async (email, order, restaurant) => {
   try {
     const transporter = createTransporter();
 
-    // Format order items
+    // Format order items - ensure we're using the name property
     const itemsList = order.items
       .map(
         (item) =>
           `<tr>
         <td style="padding: 8px; border-bottom: 1px solid #ddd;">${
-          item.name || "Item"
+          item.name || "Unknown Item"
         }</td>
         <td style="padding: 8px; border-bottom: 1px solid #ddd;">${
           item.quantity
         }</td>
-        <td style="padding: 8px; border-bottom: 1px solid #ddd;">$${item.price.toFixed(
-          2
-        )}</td>
-        <td style="padding: 8px; border-bottom: 1px solid #ddd;">$${(
-          item.price * item.quantity
-        ).toFixed(2)}</td>
+        <td style="padding: 8px; border-bottom: 1px solid #ddd;">$${
+          item.price ? item.price.toFixed(2) : "0.00"
+        }</td>
+        <td style="padding: 8px; border-bottom: 1px solid #ddd;">$${
+          item.price && item.quantity
+            ? (item.price * item.quantity).toFixed(2)
+            : "0.00"
+        }</td>
       </tr>`
       )
       .join("");
@@ -184,6 +184,260 @@ export const sendOrderConfirmationEmail = async (email, order, restaurant) => {
     return info;
   } catch (error) {
     console.error("Error sending order confirmation email:", error);
+    throw error;
+  }
+};
+
+// New function to send order notification to restaurant vendor
+export const sendRestaurantOrderNotificationEmail = async (
+  vendorEmail,
+  order,
+  customer,
+  restaurant
+) => {
+  try {
+    const transporter = createTransporter();
+
+    // Format order items
+    const itemsList = order.items
+      .map(
+        (item) =>
+          `<tr>
+        <td style="padding: 8px; border-bottom: 1px solid #ddd;">${
+          item.name || "Unknown Item"
+        }</td>
+        <td style="padding: 8px; border-bottom: 1px solid #ddd;">${
+          item.quantity
+        }</td>
+        <td style="padding: 8px; border-bottom: 1px solid #ddd;">$${
+          item.price ? item.price.toFixed(2) : "0.00"
+        }</td>
+        <td style="padding: 8px; border-bottom: 1px solid #ddd;">$${
+          item.price && item.quantity
+            ? (item.price * item.quantity).toFixed(2)
+            : "0.00"
+        }</td>
+      </tr>`
+      )
+      .join("");
+
+    // Format special requests and delivery instructions
+    const specialRequests = order.specialRequests
+      ? `<p style="font-size: 14px; line-height: 1.5; color: #555;"><strong>Special Requests:</strong> ${order.specialRequests}</p>`
+      : "";
+
+    const deliveryInstructions = order.deliveryInstructions
+      ? `<p style="font-size: 14px; line-height: 1.5; color: #555;"><strong>Delivery Instructions:</strong> ${order.deliveryInstructions}</p>`
+      : "";
+
+    const mailOptions = {
+      from: process.env.SMTP_FROM,
+      to: vendorEmail,
+      subject: `New Order Received #${order._id.toString().slice(-6)}`,
+      html: `
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #e0e0e0; border-radius: 5px;">
+          <h1 style="color: #333; text-align: center;">New Order Received</h1>
+          <div style="background-color: #f5f5f5; padding: 15px; border-radius: 5px; margin-bottom: 20px;">
+            <h2 style="color: #4CAF50; margin-top: 0;">Order #${order._id
+              .toString()
+              .slice(-6)}</h2>
+            <p style="font-size: 16px; margin: 5px 0;"><strong>Time:</strong> ${new Date(
+              order.createdAt
+            ).toLocaleString()}</p>
+            <p style="font-size: 16px; margin: 5px 0;"><strong>Customer:</strong> ${
+              customer.name
+            }</p>
+            <p style="font-size: 16px; margin: 5px 0;"><strong>Phone:</strong> ${
+              customer.phone || "Not provided"
+            }</p>
+          </div>
+          
+          <h2 style="color: #555;">Order Details</h2>
+          <table style="width: 100%; border-collapse: collapse;">
+            <thead>
+              <tr style="background-color: #f2f2f2;">
+                <th style="padding: 10px; text-align: left;">Item</th>
+                <th style="padding: 10px; text-align: left;">Quantity</th>
+                <th style="padding: 10px; text-align: left;">Price</th>
+                <th style="padding: 10px; text-align: left;">Total</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${itemsList}
+            </tbody>
+            <tfoot>
+              <tr>
+                <td colspan="3" style="padding: 10px; text-align: right; font-weight: bold;">Total:</td>
+                <td style="padding: 10px; font-weight: bold;">$${order.totalAmount.toFixed(
+                  2
+                )}</td>
+              </tr>
+            </tfoot>
+          </table>
+          
+          ${specialRequests}
+          
+          <h2 style="color: #555; margin-top: 20px;">Delivery Information</h2>
+          <p style="font-size: 14px; line-height: 1.5; color: #555;"><strong>Address:</strong> ${
+            order.deliveryAddress.street
+          }, ${order.deliveryAddress.city}, ${order.deliveryAddress.state} ${
+        order.deliveryAddress.zipCode
+      }</p>
+          ${deliveryInstructions}
+          
+          <div style="text-align: center; margin: 30px 0;">
+            <a href="${process.env.CLIENT_URL}/vendor/orders/${
+        order._id
+      }" style="background-color: #4CAF50; color: white; padding: 12px 24px; text-decoration: none; border-radius: 4px; font-weight: bold;">View Order Details</a>
+          </div>
+          
+          <p style="font-size: 14px; color: #777; margin-top: 30px;">Please update the order status as you process it. Thank you for using DineDash!</p>
+        </div>
+      `,
+    };
+
+    const info = await transporter.sendMail(mailOptions);
+    console.log(`Restaurant order notification email sent: ${info.messageId}`);
+    return info;
+  } catch (error) {
+    console.error("Error sending restaurant order notification email:", error);
+    throw error;
+  }
+};
+
+export const sendSubscriptionReminderEmail = async (
+  email,
+  userName,
+  mealPlanName,
+  renewalDate
+) => {
+  try {
+    const transporter = createTransporter();
+
+    const formattedRenewalDate = new Date(renewalDate).toLocaleDateString(
+      "en-US",
+      {
+        year: "numeric",
+        month: "long",
+        day: "numeric",
+      }
+    );
+
+    const mailOptions = {
+      from: process.env.SMTP_FROM,
+      to: email,
+      subject: "Your DineDash Subscription Renewal Reminder",
+      html: `
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #e0e0e0; border-radius: 5px;">
+          <h1 style="color: #333; text-align: center;">Subscription Renewal Reminder</h1>
+          <p style="font-size: 16px; line-height: 1.5; color: #555;">Hello ${userName},</p>
+          <p style="font-size: 16px; line-height: 1.5; color: #555;">This is a friendly reminder that your subscription to <strong>${mealPlanName}</strong> will renew on <strong>${formattedRenewalDate}</strong>.</p>
+          
+          <div style="background-color: #f9f9f9; padding: 15px; border-radius: 5px; margin: 20px 0;">
+            <p style="font-size: 14px; color: #555; margin: 0;">Please ensure your payment method is up to date to avoid any interruption in your meal delivery service.</p>
+          </div>
+          
+          <div style="text-align: center; margin: 30px 0;">
+            <a href="${process.env.CLIENT_URL}/subscriptions" style="background-color: #4CAF50; color: white; padding: 12px 24px; text-decoration: none; border-radius: 4px; font-weight: bold;">Manage Your Subscription</a>
+          </div>
+          
+          <p style="font-size: 14px; color: #777;">If you wish to make any changes to your subscription or have any questions, please visit your account dashboard or contact our customer support team.</p>
+          
+          <p style="font-size: 14px; color: #777; margin-top: 30px;">Thank you for choosing DineDash for your meal subscription needs!</p>
+        </div>
+      `,
+    };
+
+    const info = await transporter.sendMail(mailOptions);
+    console.log(`Subscription reminder email sent: ${info.messageId}`);
+    return info;
+  } catch (error) {
+    console.error("Error sending subscription reminder email:", error);
+    throw error;
+  }
+};
+
+export const sendCustomizationRequestApprovedEmail = async (
+  email,
+  userName,
+  restaurantName
+) => {
+  try {
+    const transporter = createTransporter();
+
+    const mailOptions = {
+      from: process.env.SMTP_FROM,
+      to: email,
+      subject: "Your Meal Plan Customization Request Has Been Approved",
+      html: `
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #e0e0e0; border-radius: 5px;">
+          <h1 style="color: #333; text-align: center;">Customization Request Approved</h1>
+          <p style="font-size: 16px; line-height: 1.5; color: #555;">Hello ${userName},</p>
+          <p style="font-size: 16px; line-height: 1.5; color: #555;">Great news! <strong>${restaurantName}</strong> has approved your meal plan customization request.</p>
+          
+          <div style="background-color: #f9f9f9; padding: 15px; border-radius: 5px; margin: 20px 0;">
+            <p style="font-size: 14px; color: #555; margin: 0;">The restaurant will now create a custom meal plan based on your preferences. You'll receive another notification when your custom meal plan is ready.</p>
+          </div>
+          
+          <div style="text-align: center; margin: 30px 0;">
+            <a href="${process.env.CLIENT_URL}/customization-requests" style="background-color: #4CAF50; color: white; padding: 12px 24px; text-decoration: none; border-radius: 4px; font-weight: bold;">View Request Status</a>
+          </div>
+          
+          <p style="font-size: 14px; color: #777;">If you have any questions about your customization request, please contact our customer support team.</p>
+          
+          <p style="font-size: 14px; color: #777; margin-top: 30px;">Thank you for choosing DineDash for your personalized meal needs!</p>
+        </div>
+      `,
+    };
+
+    const info = await transporter.sendMail(mailOptions);
+    console.log(`Customization request approved email sent: ${info.messageId}`);
+    return info;
+  } catch (error) {
+    console.error("Error sending customization request approved email:", error);
+    throw error;
+  }
+};
+
+export const sendCustomMealPlanCreatedEmail = async (
+  email,
+  userName,
+  restaurantName,
+  mealPlanName
+) => {
+  try {
+    const transporter = createTransporter();
+
+    const mailOptions = {
+      from: process.env.SMTP_FROM,
+      to: email,
+      subject: "Your Custom Meal Plan is Ready",
+      html: `
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #e0e0e0; border-radius: 5px;">
+          <h1 style="color: #333; text-align: center;">Custom Meal Plan Ready</h1>
+          <p style="font-size: 16px; line-height: 1.5; color: #555;">Hello ${userName},</p>
+          <p style="font-size: 16px; line-height: 1.5; color: #555;"><strong>${restaurantName}</strong> has created your custom meal plan: <strong>${mealPlanName}</strong>.</p>
+          
+          <div style="background-color: #f9f9f9; padding: 15px; border-radius: 5px; margin: 20px 0;">
+            <p style="font-size: 14px; color: #555; margin: 0;">Your custom meal plan has been tailored to your preferences and dietary requirements. You can now subscribe to this meal plan to start receiving your personalized meals.</p>
+          </div>
+          
+          <div style="text-align: center; margin: 30px 0;">
+            <a href="${process.env.CLIENT_URL}/meal-plans/custom" style="background-color: #4CAF50; color: white; padding: 12px 24px; text-decoration: none; border-radius: 4px; font-weight: bold;">View Your Custom Meal Plan</a>
+          </div>
+          
+          <p style="font-size: 14px; color: #777;">If you have any questions about your custom meal plan, please contact our customer support team.</p>
+          
+          <p style="font-size: 14px; color: #777; margin-top: 30px;">Thank you for choosing DineDash for your personalized meal needs!</p>
+        </div>
+      `,
+    };
+
+    const info = await transporter.sendMail(mailOptions);
+    console.log(`Custom meal plan created email sent: ${info.messageId}`);
+    return info;
+  } catch (error) {
+    console.error("Error sending custom meal plan created email:", error);
     throw error;
   }
 };

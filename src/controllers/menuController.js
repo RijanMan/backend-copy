@@ -20,18 +20,19 @@ export const createMenuItem = async (req, res) => {
       );
     }
 
-    // Validate meal type
     if (
-      !menuItemData.mealType ||
-      !["breakfast", "lunch", "dinner", "all-day"].includes(
-        menuItemData.mealType
-      )
+      !menuItemData.ingredients ||
+      !Array.isArray(menuItemData.ingredients) ||
+      menuItemData.ingredients.length === 0
     ) {
-      return errorResponse(
-        res,
-        "Valid meal type (breakfast, lunch, dinner, or all-day) is required",
-        400
-      );
+      // Handle case where ingredients come as a comma-separated string
+      if (typeof menuItemData.ingredients === "string") {
+        menuItemData.ingredients = menuItemData.ingredients
+          .split(",")
+          .map((item) => item.trim());
+      } else {
+        return errorResponse(res, "At least one ingredient is required", 400);
+      }
     }
 
     // Convert string values to appropriate types
@@ -51,6 +52,13 @@ export const createMenuItem = async (req, res) => {
       menuItemData.allergens = menuItemData.allergens
         .split(",")
         .map((item) => item.trim());
+    }
+
+    if (menuItemData.preparationTime) {
+      menuItemData.preparationTime = Number.parseInt(
+        menuItemData.preparationTime,
+        10
+      );
     }
 
     const restaurant = await Restaurant.findById(restaurantId);
@@ -74,22 +82,53 @@ export const createMenuItem = async (req, res) => {
         items: [],
       });
     }
-    // } else {
-    //   menu.items.push(menuItemData);
-    // }
 
-    if (req.file) {
-      menuItemData.image = filePathToUrl(req.file.path);
-    }
-
-    menu.items.push(menuItemData);
-    await menu.save();
-    successResponse(
-      res,
-      menu.items[menu.items.length - 1],
-      "Menu item created successfully",
-      201
+    // Check if the item already exists in the menu based on a unique property like name
+    const existingMenuItem = menu.items.find(
+      (item) => item.name.toLowerCase() === menuItemData.name.toLowerCase()
     );
+
+    if (existingMenuItem) {
+      // If the menu item exists, update it
+      existingMenuItem.description =
+        menuItemData.description || existingMenuItem.description;
+      existingMenuItem.price = menuItemData.price || existingMenuItem.price;
+      existingMenuItem.dietType =
+        menuItemData.dietType || existingMenuItem.dietType;
+      existingMenuItem.mealType =
+        menuItemData.mealType || existingMenuItem.mealType;
+      existingMenuItem.spicyLevel =
+        menuItemData.spicyLevel || existingMenuItem.spicyLevel;
+      existingMenuItem.isAvailable =
+        menuItemData.isAvailable || existingMenuItem.isAvailable;
+      existingMenuItem.allergens =
+        menuItemData.allergens || existingMenuItem.allergens;
+
+      if (req.file) {
+        existingMenuItem.image = filePathToUrl(req.file.path);
+      }
+
+      await menu.save();
+      return successResponse(
+        res,
+        existingMenuItem,
+        "Menu item updated successfully",
+        200
+      );
+    } else {
+      if (req.file) {
+        menuItemData.image = filePathToUrl(req.file.path);
+      }
+
+      menu.items.push(menuItemData);
+      await menu.save();
+      successResponse(
+        res,
+        menu.items[menu.items.length - 1],
+        "Menu item created successfully",
+        201
+      );
+    }
   } catch (error) {
     errorResponse(res, error.message, 400);
   }
@@ -112,13 +151,6 @@ export const getMenuItems = async (req, res) => {
       ["vegan", "vegetarian", "non-vegetarian"].includes(dietType)
     ) {
       items = items.filter((item) => item.dietType === dietType);
-    }
-
-    if (
-      mealType &&
-      ["breakfast", "lunch", "dinner", "all-day"].includes(mealType)
-    ) {
-      items = items.filter((item) => item.mealType === mealType);
     }
 
     if (category) {
@@ -153,7 +185,6 @@ export const updateMenuItem = async (req, res) => {
     const { restaurantId, itemId } = req.params;
     const updateData = req.body;
 
-    // Validate diet type if provided
     if (
       updateData.dietType &&
       !["vegan", "vegetarian", "non-vegetarian"].includes(updateData.dietType)
@@ -165,16 +196,17 @@ export const updateMenuItem = async (req, res) => {
       );
     }
 
-    // Validate meal type if provided
-    if (
-      updateData.mealType &&
-      !["breakfast", "lunch", "dinner", "all-day"].includes(updateData.mealType)
-    ) {
-      return errorResponse(
-        res,
-        "Valid meal type (breakfast, lunch, dinner, or all-day) is required",
-        400
-      );
+    if (updateData.ingredients) {
+      if (typeof updateData.ingredients === "string") {
+        updateData.ingredients = updateData.ingredients
+          .split(",")
+          .map((item) => item.trim());
+      } else if (
+        !Array.isArray(updateData.ingredients) ||
+        updateData.ingredients.length === 0
+      ) {
+        return errorResponse(res, "At least one ingredient is required", 400);
+      }
     }
 
     // Convert string values to appropriate types
@@ -286,33 +318,35 @@ export const getMenuItemsByDietType = async (req, res) => {
   }
 };
 
-export const getMenuItemsByMealType = async (req, res) => {
-  try {
-    const { restaurantId, mealType } = req.params;
 
-    if (!["breakfast", "lunch", "dinner", "all-day"].includes(mealType)) {
-      return errorResponse(
-        res,
-        "Invalid meal type. Must be breakfast, lunch, dinner, or all-day",
-        400
-      );
-    }
 
-    const menu = await Menu.findOne({ restaurant: restaurantId });
-    if (!menu) {
-      return errorResponse(res, "Menu not found for this restaurant", 404);
-    }
+// export const getMenuItemsByMealType = async (req, res) => {
+//   try {
+//     const { restaurantId, mealType } = req.params;
 
-    const filteredItems = menu.items.filter(
-      (item) => item.mealType === mealType
-    );
+//     if (!["breakfast", "lunch", "dinner", "all-day"].includes(mealType)) {
+//       return errorResponse(
+//         res,
+//         "Invalid meal type. Must be breakfast, lunch, dinner, or all-day",
+//         400
+//       );
+//     }
 
-    successResponse(
-      res,
-      filteredItems,
-      `${mealType} menu items retrieved successfully`
-    );
-  } catch (error) {
-    errorResponse(res, error.message, 400);
-  }
-};
+//     const menu = await Menu.findOne({ restaurant: restaurantId });
+//     if (!menu) {
+//       return errorResponse(res, "Menu not found for this restaurant", 404);
+//     }
+
+//     const filteredItems = menu.items.filter(
+//       (item) => item.mealType === mealType
+//     );
+
+//     successResponse(
+//       res,
+//       filteredItems,
+//       `${mealType} menu items retrieved successfully`
+//     );
+//   } catch (error) {
+//     errorResponse(res, error.message, 400);
+//   }
+// };

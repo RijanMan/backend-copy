@@ -1,5 +1,35 @@
 import mongoose from "mongoose";
 
+const dailyMenuItemSchema = new mongoose.Schema({
+  itemId: {
+    type: mongoose.Schema.Types.ObjectId,
+    required: true,
+  },
+  name: {
+    type: String,
+    required: true,
+  },
+  description: {
+    type: String,
+    required: true,
+  },
+  price: {
+    type: Number,
+    required: true,
+  },
+});
+
+const dailyMenuSchema = new mongoose.Schema({
+  day: {
+    type: String,
+    enum: ["sunday", "monday", "tuesday", "wednesday", "thursday", "friday"],
+    required: true,
+  },
+  vegItems: [dailyMenuItemSchema],
+  nonVegItems: [dailyMenuItemSchema],
+  veganItems: [dailyMenuItemSchema],
+});
+
 const mealPlanSchema = new mongoose.Schema(
   {
     restaurant: {
@@ -11,70 +41,61 @@ const mealPlanSchema = new mongoose.Schema(
       type: String,
       required: [true, "Meal plan name is required"],
       trim: true,
-      minlength: [2, "Name must be at least 2 characters"],
-      maxlength: [50, "Name cannot exceed 50 characters"],
+      maxlength: [100, "Name cannot exceed 100 characters"],
     },
     description: {
       type: String,
-      required: [true, "Meal plan description is required"],
+      required: [true, "Description is required"],
       trim: true,
       maxlength: [500, "Description cannot exceed 500 characters"],
     },
-    duration: {
+    tier: {
       type: String,
-      enum: ["weekly", "monthly"],
-      required: [true, "Duration is required"],
+      required: true,
+      enum: ["regular", "custom", "business"],
     },
+    weeklyMenu: [dailyMenuSchema],
     price: {
       type: Number,
       required: [true, "Price is required"],
       min: [0, "Price cannot be negative"],
     },
-    mealType: {
+    duration: {
       type: String,
-      enum: ["breakfast", "lunch", "dinner", "full-day"],
-      required: [true, "Meal type is required"],
-    },
-    mealTime: {
-      type: String,
-      required: [true, "Meal delivery time is required"],
-    },
-    dietaryOptions: {
-      type: String,
-      enum: ["vegetarian", "vegan", "non-vegetarian"],
-      default: "vegetarian",
-      required: [true, "Dietary option is required"],
-    },
-    portionSize: {
-      type: String,
-      enum: ["small", "medium", "large"],
-      default: "medium",
+      required: true,
+      enum: ["weekly", "monthly"],
+      default: "weekly",
     },
     isActive: {
       type: Boolean,
       default: true,
     },
-    availableDays: {
-      type: [String],
-      enum: [
-        "monday",
-        "tuesday",
-        "wednesday",
-        "thursday",
-        "friday",
-        "saturday",
-        "sunday",
-      ],
-      default: ["monday", "tuesday", "wednesday", "thursday", "friday"],
-    },
-
     maxSubscribers: {
       type: Number,
-      min: 1,
+      min: 0,
     },
     currentSubscribers: {
       type: Number,
       default: 0,
+    },
+    image: {
+      type: String,
+      default: "default-meal-plan.jpg",
+    },
+    // For custom tier meal plans
+    isCustom: {
+      type: Boolean,
+      default: false,
+    },
+    customFor: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User",
+      default: null,
+    },
+    customizationRequest: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "CustomizationRequest",
+      default: null,
     },
   },
   { timestamps: true }

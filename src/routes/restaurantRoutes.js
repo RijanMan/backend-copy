@@ -14,7 +14,6 @@ import {
 import {
   getRestaurantAnalytics,
   getRestaurantReport,
-  updateRestaurantHours,
 } from "../controllers/vendorController.js";
 
 const router = express.Router();
@@ -30,6 +29,7 @@ router.post(
 
 router.get("/", getRestaurants);
 router.get("/search", searchRestaurants);
+
 router.get("/:id", getRestaurant);
 
 router.put(
@@ -57,13 +57,4 @@ router.get(
   getRestaurantReport
 );
 
-router.put(
-  "/:restaurantId/hours",
-  protect,
-  authorize("vendor"),
-  validate([
-    // Add validation rules for opening hours
-  ]),
-  updateRestaurantHours
-);
 export default router;

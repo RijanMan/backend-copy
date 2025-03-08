@@ -9,6 +9,7 @@ import {
   getMenuItem,
   updateMenuItem,
   deleteMenuItem,
+  getMenuItemsByDietType,
 } from "../controllers/menuController.js";
 
 const router = express.Router();
@@ -23,7 +24,10 @@ router.post(
 );
 
 router.get("/:restaurantId", getMenuItems);
-router.get("/:restaurantId/:itemId", getMenuItem);
+
+router.get("/:restaurantId/item/:itemId", getMenuItem);
+
+router.get("/:restaurantId/diet/:dietType", getMenuItemsByDietType);
 
 router.put(
   "/:restaurantId/:itemId",

@@ -6,51 +6,66 @@ import { upload } from "../middlewares/uploadMiddleware.js";
 import {
   createMealPlan,
   getMealPlans,
-  getMealPlan,
+  getMealPlanDetails,
   updateMealPlan,
+  toggleMealPlanStatus,
   deleteMealPlan,
+  getUserCustomMealPlans,
+  createCustomMealPlan,
 } from "../controllers/mealPlanController.js";
 
 const router = express.Router();
 
+// Public routes
+router.get("/restaurant/:restaurantId", getMealPlans);
+router.get("/:id", getMealPlanDetails);
+
+// User routes
+router.get("/custom/user", protect, authorize("user"), getUserCustomMealPlans);
+
+// Vendor routes
 router.post(
-  "/:restaurantId",
+  "/restaurant/:restaurantId",
   protect,
   authorize("vendor"),
-  upload.single("image"),
+  upload.single("mealPlanImage"),
   validate([
-    body("name").notEmpty().withMessage("Name is required"),
+    body("name").notEmpty().withMessage("Meal plan name is required"),
     body("description").notEmpty().withMessage("Description is required"),
+    body("tier")
+      .isIn(["regular", "custom", "business"])
+      .withMessage("Invalid tier"),
+    body("price").isNumeric().withMessage("Price must be a number"),
     body("duration")
+      .optional()
       .isIn(["weekly", "monthly"])
       .withMessage("Invalid duration"),
-    body("price").isNumeric().withMessage("Price must be a number"),
-    body("mealOptions").isArray().withMessage("Meal options must be an array"),
-    body("mealOptions.*")
-      .isIn(["morning", "evening", "both"])
-      .withMessage("Invalid meal option"),
-    body("dietaryOptions")
-      .optional()
-      .isArray()
-      .withMessage("Dietary options must be an array"),
-    body("dietaryOptions.*")
-      .optional()
-      .isIn(["vegetarian", "vegan", "lactose-free", "gluten-free"])
-      .withMessage("Invalid dietary option"),
-    body("customizationAllowed")
-      .optional()
-      .isBoolean()
-      .withMessage("Customization allowed must be a boolean"),
     body("maxSubscribers")
       .optional()
-      .isInt({ min: 1 })
-      .withMessage("Max subscribers must be at least 1"),
+      .isNumeric()
+      .withMessage("Max subscribers must be a number"),
+    body("weeklyMenu").isArray().withMessage("Weekly menu must be an array"),
   ]),
   createMealPlan
 );
 
-router.get("/:restaurantId", getMealPlans);
-router.get("/detail/:id", getMealPlan);
+router.post(
+  "/custom/:customizationRequestId",
+  protect,
+  authorize("vendor"),
+  upload.single("mealPlanImage"),
+  validate([
+    body("name").notEmpty().withMessage("Meal plan name is required"),
+    body("description").notEmpty().withMessage("Description is required"),
+    body("price").isNumeric().withMessage("Price must be a number"),
+    body("duration")
+      .optional()
+      .isIn(["weekly", "monthly"])
+      .withMessage("Invalid duration"),
+    body("weeklyMenu").isArray().withMessage("Weekly menu must be an array"),
+  ]),
+  createCustomMealPlan
+);
 
 router.put(
   "/:id",
@@ -58,42 +73,23 @@ router.put(
   authorize("vendor"),
   upload.single("image"),
   validate([
-    body("name").optional().notEmpty().withMessage("Name cannot be empty"),
-    body("description")
-      .optional()
-      .notEmpty()
-      .withMessage("Description cannot be empty"),
+    body("name").notEmpty().withMessage("Meal plan name is required"),
+    body("description").notEmpty().withMessage("Description is required"),
+    body("price").isNumeric().withMessage("Price must be a number"),
     body("duration")
       .optional()
       .isIn(["weekly", "monthly"])
       .withMessage("Invalid duration"),
-    body("price").optional().isNumeric().withMessage("Price must be a number"),
-    body("mealOptions")
-      .optional()
-      .isArray()
-      .withMessage("Meal options must be an array"),
-    body("mealOptions.*")
-      .optional()
-      .isIn(["morning", "evening", "both"])
-      .withMessage("Invalid meal option"),
-    body("dietaryOptions")
-      .optional()
-      .isArray()
-      .withMessage("Dietary options must be an array"),
-    body("dietaryOptions.*")
-      .optional()
-      .isIn(["vegetarian", "vegan", "lactose-free", "gluten-free"])
-      .withMessage("Invalid dietary option"),
-    body("customizationAllowed")
-      .optional()
-      .isBoolean()
-      .withMessage("Customization allowed must be a boolean"),
-    body("maxSubscribers")
-      .optional()
-      .isInt({ min: 1 })
-      .withMessage("Max subscribers must be at least 1"),
+    body("weeklyMenu").isArray().withMessage("Weekly menu must be an array"),
   ]),
   updateMealPlan
+);
+
+router.put(
+  "/:id/toggle-status",
+  protect,
+  authorize("vendor"),
+  toggleMealPlanStatus
 );
 
 router.delete("/:id", protect, authorize("vendor"), deleteMealPlan);

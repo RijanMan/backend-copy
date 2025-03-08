@@ -1,7 +1,7 @@
-import dotenv from "dotenv";
 import connectDB from "../config/db.js";
 import User from "../models/User.js";
-import bcrypt from "bcrypt";
+import bcrypt from "bcryptjs";
+import dotenv from "dotenv";
 
 dotenv.config();
 
@@ -16,17 +16,18 @@ export const Admin = async () => {
       process.exit(0);
     }
 
-    const salt = await bcrypt.genSalt(12);
-    const hashedPassword = await bcrypt.hash("adminpassword123", salt);
+    // const salt = await bcrypt.genSalt(12);
+    // console.log("Generated Salt:", salt);
+
+    // const hashedPassword = await bcrypt.hash("adminpassword1", salt);
+    // console.log("Hashed Password:", hashedPassword);
 
     const adminUser = new User({
       name: "Admin User",
-      email: "admin@example.com",
-      password: hashedPassword,
+      email: "admin@gmail.com",
+      password: "adminpassword1",
       role: "admin",
       isEmailVerified: true,
-      adminDepartment: "operations",
-      adminAccessLevel: 5,
     });
 
     await adminUser.save();

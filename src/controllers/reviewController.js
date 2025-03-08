@@ -14,7 +14,7 @@ export const createReview = async (req, res) => {
     });
 
     await review.save();
-    successResponse(res, 201, review);
+    successResponse(res, review, "Review created successfully", 201);
   } catch (error) {
     errorResponse(res, 500, error.message);
   }

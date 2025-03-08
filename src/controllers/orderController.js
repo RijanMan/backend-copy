@@ -1,108 +1,241 @@
 import Order from "../models/Order.js";
-import { successResponse, errorResponse } from "../utils/responseHandler.js";
 import Restaurant from "../models/Restaurant.js";
+import Menu from "../models/Menu.js";
+import User from "../models/User.js";
+import Subscription from "../models/Subscription.js";
+import Notification from "../models/Notification.js";
+import { successResponse, errorResponse } from "../utils/responseHandler.js";
+import {
+  sendOrderConfirmationEmail,
+  sendRestaurantOrderNotificationEmail,
+} from "../utils/mailer.js";
 
 export const createOrder = async (req, res) => {
   try {
     const {
       restaurantId,
       items,
-      totalAmount,
-      paymentMethod,
       deliveryAddress,
-      specialInstructions,
+      paymentMethod,
+      deliveryInstructions,
+      specialRequests,
     } = req.body;
 
+    // Validate restaurant exists
     const restaurant = await Restaurant.findById(restaurantId);
     if (!restaurant) {
       return errorResponse(res, "Restaurant not found", 404);
     }
 
-    if (!restaurant.isActive) {
-      return errorResponse(
-        res,
-        "Restaurant is currently not accepting orders",
-        400
-      );
+    // Validate menu items exist
+    const menu = await Menu.findOne({ restaurant: restaurantId });
+    if (!menu) {
+      return errorResponse(res, "Menu not found for this restaurant", 404);
     }
 
+    // Validate each item exists in the menu and get full item details
+    const validatedItems = [];
+    let totalAmount = 0;
+
+    for (const orderItem of items) {
+      const menuItem = menu.items.id(orderItem.itemId);
+      if (!menuItem) {
+        return errorResponse(
+          res,
+          `Menu item with ID ${orderItem.itemId} not found`,
+          404
+        );
+      }
+
+      // Check if item is available
+      if (!menuItem.isAvailable) {
+        return errorResponse(
+          res,
+          `Menu item "${menuItem.name}" is currently unavailable`,
+          400
+        );
+      }
+
+      // Add validated item with full details
+      const validatedItem = {
+        itemId: orderItem.itemId,
+        name: menuItem.name,
+        price: menuItem.price,
+        quantity: orderItem.quantity,
+      };
+
+      validatedItems.push(validatedItem);
+      totalAmount += menuItem.price * orderItem.quantity;
+    }
+
+    // Create order with validated items
     const order = new Order({
       user: req.user._id,
       restaurant: restaurantId,
-      items,
+      items: validatedItems,
       totalAmount,
-      paymentMethod,
       deliveryAddress,
-      specialInstructions,
-      status: "pending",
-      paymentStatus: "pending",
+      paymentMethod,
+      deliveryInstructions,
+      specialRequests,
     });
 
     await order.save();
 
     // Create notification for restaurant owner
-    try {
-      const { default: Notification } = await import(
-        "../models/Notification.js"
-      );
-      const notification = new Notification({
-        recipient: restaurant.owner,
-        type: "order_update",
-        title: "New Order Received",
-        message: `You have received a new order #${order._id
-          .toString()
-          .slice(-6)} worth $${totalAmount}`,
-        relatedOrder: order._id,
-      });
-      await notification.save();
-    } catch (notificationError) {
-      console.error(
-        "Failed to create restaurant notification:",
-        notificationError
-      );
-    }
+    const notification = new Notification({
+      recipient: restaurant.owner,
+      type: "new_order",
+      title: "New Order Received",
+      message: `You have received a new order from ${req.user.name}`,
+      relatedOrder: order._id,
+    });
 
-    // Create notification for user
-    try {
-      const { default: Notification } = await import(
-        "../models/Notification.js"
-      );
-      const userNotification = new Notification({
-        recipient: req.user._id,
-        type: "order_update",
-        title: "Order Placed Successfully",
-        message: `Your order #${order._id
-          .toString()
-          .slice(
-            -6
-          )} has been placed successfully and is pending confirmation.`,
-        relatedOrder: order._id,
-      });
-      await userNotification.save();
-    } catch (notificationError) {
-      console.error("Failed to create user notification:", notificationError);
-    }
+    await notification.save();
 
-    // Send order confirmation email
+    // Get restaurant owner details for email
+    const restaurantOwner = await User.findById(restaurant.owner);
+
+    // Send order confirmation email to customer
     try {
-      const { sendOrderConfirmationEmail } = await import("../utils/mailer.js");
       await sendOrderConfirmationEmail(req.user.email, order, restaurant);
     } catch (emailError) {
-      console.error("Failed to send order confirmation email:", emailError);
+      console.error(
+        "Error sending order confirmation email to customer:",
+        emailError
+      );
+      // Continue with the order process even if email fails
+    }
+
+    // Send order notification email to restaurant vendor
+    try {
+      if (restaurantOwner && restaurantOwner.email) {
+        await sendRestaurantOrderNotificationEmail(
+          restaurantOwner.email,
+          order,
+          req.user,
+          restaurant
+        );
+      }
+    } catch (emailError) {
+      console.error(
+        "Error sending order notification email to restaurant:",
+        emailError
+      );
+      // Continue with the order process even if email fails
     }
 
     successResponse(res, order, "Order created successfully", 201);
   } catch (error) {
+    console.error("Error creating order:", error);
     errorResponse(res, error.message, 400);
   }
 };
 
 export const getUserOrders = async (req, res) => {
   try {
-    const orders = await Order.find({ user: req.user._id }).sort({
-      createdAt: -1,
+    const orders = await Order.find({ user: req.user._id })
+      .populate("restaurant", "name cuisine")
+      .sort({ createdAt: -1 });
+    successResponse(res, orders, "User orders retrieved successfully");
+  } catch (error) {
+    errorResponse(res, error.message, 400);
+  }
+};
+
+export const getOrderDetails = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const order = await Order.findById(id).populate(
+      "restaurant",
+      "name cuisine address phone"
+    );
+
+    if (!order) {
+      return errorResponse(res, "Order not found", 404);
+    }
+
+    // Check if user is authorized to view this order
+    if (
+      req.user.role === "user" &&
+      order.user.toString() !== req.user._id.toString()
+    ) {
+      return errorResponse(res, "Not authorized to view this order", 403);
+    }
+
+    // If vendor, check if order is for their restaurant
+    if (req.user.role === "vendor") {
+      const restaurant = await Restaurant.findOne({ owner: req.user._id });
+      if (
+        !restaurant ||
+        order.restaurant._id.toString() !== restaurant._id.toString()
+      ) {
+        return errorResponse(res, "Not authorized to view this order", 403);
+      }
+    }
+
+    successResponse(res, order, "Order details retrieved successfully");
+  } catch (error) {
+    errorResponse(res, error.message, 400);
+  }
+};
+
+export const updateOrderStatus = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { status, estimatedDeliveryTime } = req.body;
+
+    const order = await Order.findById(id);
+    if (!order) {
+      return errorResponse(res, "Order not found", 404);
+    }
+
+    // Check if vendor is authorized to update this order
+    if (req.user.role === "vendor") {
+      const restaurant = await Restaurant.findOne({ owner: req.user._id });
+      if (
+        !restaurant ||
+        order.restaurant.toString() !== restaurant._id.toString()
+      ) {
+        return errorResponse(res, "Not authorized to update this order", 403);
+      }
+    }
+
+    // Validate status
+    const validStatuses = [
+      "pending",
+      "confirmed",
+      "preparing",
+      "out_for_delivery",
+      "delivered",
+      "cancelled",
+    ];
+    if (!validStatuses.includes(status)) {
+      return errorResponse(res, "Invalid order status", 400);
+    }
+
+    // Update order
+    order.status = status;
+    if (estimatedDeliveryTime) {
+      order.estimatedDeliveryTime = estimatedDeliveryTime;
+    }
+
+    await order.save();
+
+    // Create notification for user
+    const notification = new Notification({
+      recipient: order.user,
+      type: "order_update",
+      title: "Order Status Updated",
+      message: `Your order #${order._id
+        .toString()
+        .slice(-6)} has been ${status}`,
+      relatedOrder: order._id,
     });
-    successResponse(res, orders, "Orders retrieved successfully");
+
+    await notification.save();
+
+    successResponse(res, order, "Order status updated successfully");
   } catch (error) {
     errorResponse(res, error.message, 400);
   }
@@ -111,7 +244,9 @@ export const getUserOrders = async (req, res) => {
 export const getRestaurantOrders = async (req, res) => {
   try {
     const { restaurantId } = req.params;
+    const { status } = req.query;
 
+    // Check if vendor is authorized to view orders for this restaurant
     const restaurant = await Restaurant.findById(restaurantId);
     if (!restaurant) {
       return errorResponse(res, "Restaurant not found", 404);
@@ -125,88 +260,173 @@ export const getRestaurantOrders = async (req, res) => {
       );
     }
 
-    const orders = await Order.find({
-      restaurant: req.params.restaurantId,
-    }).sort({ createdAt: -1 });
-    successResponse(res, orders, "Orders retrieved successfully");
+    // Build query
+    const query = { restaurant: restaurantId };
+    if (
+      status &&
+      [
+        "pending",
+        "confirmed",
+        "preparing",
+        "out_for_delivery",
+        "delivered",
+        "cancelled",
+      ].includes(status)
+    ) {
+      query.status = status;
+    }
+
+    const orders = await Order.find(query).sort({ createdAt: -1 });
+    successResponse(res, orders, "Restaurant orders retrieved successfully");
   } catch (error) {
     errorResponse(res, error.message, 400);
   }
 };
 
-export const updateOrderStatus = async (req, res) => {
+export const getSubscriptionOrders = async (req, res) => {
   try {
-    const { orderId } = req.params;
-    const { status } = req.body;
+    const { subscriptionId } = req.params;
 
-    const order = await Order.findById(orderId);
-    if (!order) {
-      return errorResponse(res, "Order not found", 404);
+    const subscription = await Subscription.findById(subscriptionId);
+    if (!subscription) {
+      return errorResponse(res, "Subscription not found", 404);
     }
 
-    const restaurant = await Restaurant.findById(order.restaurant);
-    if (!restaurant) {
-      return errorResponse(res, "Restaurant not found", 404);
-    }
-
-    if (restaurant.owner.toString() !== req.user._id.toString()) {
+    if (subscription.user.toString() !== req.user._id.toString()) {
       return errorResponse(
         res,
-        "Not authorized to update status for this order",
+        "Not authorized to view orders for this subscription",
         403
       );
     }
 
-    const validTransitions = {
-      pending: ["preparing", "cancelled"],
-      preparing: ["on the way", "cancelled"],
-      "on the way": ["delivered", "cancelled"],
-      delivered: [],
-      cancelled: [],
-    };
+    // Find orders related to this subscription
+    const orders = await Order.find({
+      subscription: subscriptionId,
+    })
+      .populate("restaurant", "name cuisine")
+      .sort({ scheduledFor: 1 }); // Sort by scheduled date
 
-    if (!validTransitions[order.status].includes(status)) {
+    successResponse(res, orders, "Subscription orders retrieved successfully");
+  } catch (error) {
+    errorResponse(res, error.message, 400);
+  }
+};
+
+export const cancelOrder = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { cancellationReason } = req.body;
+
+    const order = await Order.findById(id);
+    if (!order) {
+      return errorResponse(res, "Order not found", 404);
+    }
+
+    // Check if user is authorized to cancel this order
+    if (
+      req.user.role === "user" &&
+      order.user.toString() !== req.user._id.toString()
+    ) {
+      return errorResponse(res, "Not authorized to cancel this order", 403);
+    }
+
+    // If vendor, check if order is for their restaurant
+    if (req.user.role === "vendor") {
+      const restaurant = await Restaurant.findOne({ owner: req.user._id });
+      if (
+        !restaurant ||
+        order.restaurant.toString() !== restaurant._id.toString()
+      ) {
+        return errorResponse(res, "Not authorized to cancel this order", 403);
+      }
+    }
+
+    // Check if order can be cancelled
+    if (["delivered", "cancelled"].includes(order.status)) {
       return errorResponse(
         res,
-        `Cannot change order status from ${order.status} to ${status}`,
+        `Order cannot be cancelled as it is already ${order.status}`,
         400
       );
     }
 
-    const oldStatus = order.status;
-    order.status = status;
+    // Update order
+    order.status = "cancelled";
+    order.cancellationReason = cancellationReason || "Cancelled by user";
+    order.cancelledAt = Date.now();
 
-    // Add timestamp for status change
-    if (status === "delivered") {
-      order.actualDeliveryTime = new Date();
-    }
     await order.save();
 
-    // Create notification for user
-    try {
-      const notification = {
-        recipient: order.user,
-        type: "order_update",
-        title: "Order Status Updated",
-        message: `Your order #${order._id
-          .toString()
-          .slice(-6)} has been updated from ${oldStatus} to ${status}`,
-        relatedOrder: order._id,
-      };
+    // Create notification
+    let notificationRecipient;
+    let notificationMessage;
 
-      // Import dynamically to avoid circular dependencies
-      const { default: Notification } = await import(
-        "../models/Notification.js"
-      );
-      const newNotification = new Notification(notification);
-      await newNotification.save();
-    } catch (notificationError) {
-      console.error("Failed to create notification:", notificationError);
-      // Continue with the response even if notification fails
+    if (req.user.role === "user") {
+      // If user cancelled, notify restaurant
+      const restaurant = await Restaurant.findById(order.restaurant);
+      notificationRecipient = restaurant.owner;
+      notificationMessage = `Order #${order._id
+        .toString()
+        .slice(-6)} has been cancelled by the customer`;
+    } else {
+      // If restaurant cancelled, notify user
+      notificationRecipient = order.user;
+      notificationMessage = `Your order #${order._id
+        .toString()
+        .slice(-6)} has been cancelled by the restaurant`;
     }
 
-    successResponse(res, order, "Order status updated successfully");
+    const notification = new Notification({
+      recipient: notificationRecipient,
+      type: "order_cancelled",
+      title: "Order Cancelled",
+      message: notificationMessage,
+      relatedOrder: order._id,
+    });
+
+    await notification.save();
+
+    successResponse(res, order, "Order cancelled successfully");
   } catch (error) {
+    errorResponse(res, error.message, 400);
+  }
+};
+
+export const getUpcomingSubscriptionOrders = async (req, res) => {
+  try {
+    // Get current date
+    const now = new Date();
+
+    // Find all active subscriptions for the user
+    const subscriptions = await Subscription.find({
+      user: req.user._id,
+      status: "active",
+    });
+
+    if (subscriptions.length === 0) {
+      return successResponse(res, [], "No active subscriptions found");
+    }
+
+    // Get subscription IDs
+    const subscriptionIds = subscriptions.map((sub) => sub._id);
+
+    // Find upcoming orders for these subscriptions
+    const upcomingOrders = await Order.find({
+      subscription: { $in: subscriptionIds },
+      status: { $in: ["pending", "confirmed"] },
+      scheduledFor: { $gte: now },
+    })
+      .populate("restaurant", "name")
+      .sort({ scheduledFor: 1 });
+
+    successResponse(
+      res,
+      upcomingOrders,
+      "Upcoming subscription orders retrieved successfully"
+    );
+  } catch (error) {
+    console.error("Error retrieving upcoming subscription orders:", error);
     errorResponse(res, error.message, 400);
   }
 };

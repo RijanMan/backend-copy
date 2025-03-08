@@ -46,6 +46,7 @@ router.post(
 router.get("/verify-email/:token", verifyEmail);
 
 router.post("/forgot-password", forgotPassword);
+
 router.post(
   "/reset-password/:token",
   validate([

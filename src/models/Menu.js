@@ -14,6 +14,14 @@ const menuItemSchema = new mongoose.Schema({
     trim: true,
     maxlength: [200, "Description cannot exceed 200 characters"],
   },
+  ingredients: {
+    type: [String],
+    required: [true, "Ingredients are required"],
+    validate: {
+      validator: (v) => Array.isArray(v) && v.length > 0,
+      message: "At lease one ingredient is required",
+    },
+  },
   price: {
     type: Number,
     required: [true, "Price is required"],
@@ -24,11 +32,6 @@ const menuItemSchema = new mongoose.Schema({
     required: [true, "Category is required"],
     enum: ["appetizer", "main course", "dessert", "beverage"],
   },
-  mealType: {
-    type: String,
-    required: [true, "Meal Type is required"],
-    enum: ["breakfast", "lunch", "dinner"],
-  },
   dietType: {
     type: String,
     required: [true, "Diet type is required"],
@@ -36,7 +39,7 @@ const menuItemSchema = new mongoose.Schema({
   },
   image: {
     type: String,
-    default: "default-food-image.jpg",
+    default: "https://example.com/default-food-image.jpg",
   },
   isAvailable: {
     type: Boolean,
@@ -49,19 +52,9 @@ const menuItemSchema = new mongoose.Schema({
     max: 5,
     default: 0,
   },
-  dayAvailable: {
-    type: [String],
-    enum: [
-      "monday",
-      "tuesday",
-      "wednesday",
-      "thursday",
-      "friday",
-      "saturday",
-      "sunday",
-      "all",
-    ],
-    default: ["all"],
+  preparationTime: {
+    type: Number,
+    min: 0,
   },
 });
 

@@ -11,7 +11,9 @@ import {
 const router = express.Router();
 
 router.get("/analytics", protect, authorize("admin"), getSystemAnalytics);
+
 router.get("/users", protect, authorize("admin"), getAllUsers);
+
 router.put(
   "/users/:userId/status",
   protect,
@@ -19,6 +21,7 @@ router.put(
   updateUserStatus
 );
 router.get("/restaurants", protect, authorize("admin"), getAllRestaurants);
+
 router.put(
   "/restaurants/:restaurantId/status",
   protect,
