@@ -11,6 +11,7 @@ export const createSubscription = async (req, res) => {
       selectedDietType,
       selectedMealTimes,
       paymentMethod,
+      startDate,
       deliveryAddress,
       deliveryInstructions,
     } = req.body;

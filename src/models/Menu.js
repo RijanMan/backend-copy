@@ -17,10 +17,6 @@ const menuItemSchema = new mongoose.Schema({
   ingredients: {
     type: [String],
     required: [true, "Ingredients are required"],
-    validate: {
-      validator: (v) => Array.isArray(v) && v.length > 0,
-      message: "At lease one ingredient is required",
-    },
   },
   price: {
     type: Number,

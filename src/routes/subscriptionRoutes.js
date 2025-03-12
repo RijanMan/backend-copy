@@ -13,7 +13,7 @@ import {
 const router = express.Router();
 
 router.post(
-  "/",
+  "/createSub",
   protect,
   authorize("user"),
   validate([
@@ -28,7 +28,7 @@ router.post(
       .isIn(["morning", "evening", "both"])
       .withMessage("Invalid meal time"),
     body("paymentMethod")
-      .isIn(["credit card", "debit card", "online payment"])
+      .isIn(["online"])
       .withMessage("Invalid payment method"),
     body("deliveryAddress")
       .isObject()

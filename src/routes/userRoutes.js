@@ -52,10 +52,11 @@ router.put(
       .if(body("role").equals("rider")),
 
     // Customer-specific fields (preferences)
-    body("preferences.favoriteCuisines")
+    body("dietaryPreference")
       .optional()
-      .isArray()
+      .isIn(["vegetarian", "vegan", "non-vegetarian"])
       .if(body("role").equals("user")),
+    body("allergies").optional().isString().if(body("role").equals("user")),
   ]),
   updateUserProfile
 );

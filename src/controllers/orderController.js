@@ -9,6 +9,7 @@ import {
   sendOrderConfirmationEmail,
   sendRestaurantOrderNotificationEmail,
 } from "../utils/mailer.js";
+import { sendOrderStatusUpdate } from "../services/socketService.js";
 
 export const createOrder = async (req, res) => {
   try {
@@ -104,7 +105,6 @@ export const createOrder = async (req, res) => {
         "Error sending order confirmation email to customer:",
         emailError
       );
-      // Continue with the order process even if email fails
     }
 
     // Send order notification email to restaurant vendor
@@ -124,6 +124,9 @@ export const createOrder = async (req, res) => {
       );
       // Continue with the order process even if email fails
     }
+
+    // Send real-time notification via WebSocket
+    sendOrderStatusUpdate(order, null);
 
     successResponse(res, order, "Order created successfully", 201);
   } catch (error) {
@@ -190,22 +193,11 @@ export const updateOrderStatus = async (req, res) => {
       return errorResponse(res, "Order not found", 404);
     }
 
-    // Check if vendor is authorized to update this order
-    if (req.user.role === "vendor") {
-      const restaurant = await Restaurant.findOne({ owner: req.user._id });
-      if (
-        !restaurant ||
-        order.restaurant.toString() !== restaurant._id.toString()
-      ) {
-        return errorResponse(res, "Not authorized to update this order", 403);
-      }
-    }
-
-    // Validate status
     const validStatuses = [
       "pending",
       "confirmed",
       "preparing",
+      "ready_for_pickup",
       "out_for_delivery",
       "delivered",
       "cancelled",
@@ -214,7 +206,11 @@ export const updateOrderStatus = async (req, res) => {
       return errorResponse(res, "Invalid order status", 400);
     }
 
+    // Store previous status for WebSocket notification
+    const previousStatus = order.status;
+
     // Update order
+    const oldStatus = order.status;
     order.status = status;
     if (estimatedDeliveryTime) {
       order.estimatedDeliveryTime = estimatedDeliveryTime;
@@ -229,11 +225,14 @@ export const updateOrderStatus = async (req, res) => {
       title: "Order Status Updated",
       message: `Your order #${order._id
         .toString()
-        .slice(-6)} has been ${status}`,
+        .slice(-6)} has been updated from ${oldStatus} to ${status}`,
       relatedOrder: order._id,
     });
 
     await notification.save();
+
+    // Send real-time notification via WebSocket
+    sendOrderStatusUpdate(order, previousStatus);
 
     successResponse(res, order, "Order status updated successfully");
   } catch (error) {

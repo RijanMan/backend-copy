@@ -4,6 +4,10 @@ import CustomizationRequest from "../models/CustomizationRequest.js";
 import Notification from "../models/Notification.js";
 import { successResponse, errorResponse } from "../utils/responseHandler.js";
 import { filePathToUrl } from "../middlewares/uploadMiddleware.js";
+import {
+  sendNewMealPlanNotification,
+  sendCustomizationRequestUpdate,
+} from "../services/socketService.js";
 
 export const createMealPlan = async (req, res) => {
   try {
@@ -85,13 +89,34 @@ export const createMealPlan = async (req, res) => {
         );
       }
     }
+    // Ensure each item has the required fields
+    const validateItems = (items, type) => {
+      if (!items || !Array.isArray(items)) return true;
+
+      for (const item of items) {
+        if (!item.itemId || !item.name || !item.price || !item.description) {
+          return errorResponse(
+            res,
+            `Each ${type} item must have itemId, name, price, and description fields`,
+            400
+          );
+        }
+      }
+      return true;
+    };
+
+    for (const menuItem of parsedWeeklyMenu) {
+      if (!validateItems(menuItem.vegItems, "vegetarian")) return;
+      if (!validateItems(menuItem.nonVegItems, "non-vegetarian")) return;
+      if (!validateItems(menuItem.veganItems, "vegan")) return;
+    }
 
     const mealPlan = new MealPlan({
       restaurant: restaurantId,
       name,
       description,
       tier,
-      price: Number(price),
+      price,
       duration: duration || "weekly",
       maxSubscribers: maxSubscribers ? Number(maxSubscribers) : undefined,
       weeklyMenu: parsedWeeklyMenu,
@@ -105,6 +130,13 @@ export const createMealPlan = async (req, res) => {
     await mealPlan.save();
     successResponse(res, mealPlan, "Meal plan created successfully", 201);
   } catch (error) {
+    console.error("Error creating meal plan:", error);
+    if (error.name === "ValidationError") {
+      const validationErrors = Object.values(error.errors).map(
+        (err) => err.message
+      );
+      return errorResponse(res, "Validation error", 400, validationErrors);
+    }
     errorResponse(res, error.message, 400);
   }
 };
@@ -207,6 +239,9 @@ export const createCustomMealPlan = async (req, res) => {
       relatedMealPlan: mealPlan._id,
     });
 
+    sendNewMealPlanNotification(mealPlan, customizationRequest.user._id);
+    sendCustomizationRequestUpdate(customizationRequest, "completed");
+
     await notification.save();
 
     successResponse(
@@ -217,6 +252,12 @@ export const createCustomMealPlan = async (req, res) => {
     );
   } catch (error) {
     console.error("Error creating custom meal plan:", error);
+    if (error.name === "ValidationError") {
+      const validationErrors = Object.values(error.errors).map(
+        (err) => err.message
+      );
+      return errorResponse(res, "Validation error", 400, validationErrors);
+    }
     errorResponse(res, error.message, 400);
   }
 };

@@ -1,10 +1,3 @@
-/**
- * Sends a success response.
- * @param {Object} res - Express response object.
- * @param {*} data - Data to be sent in the response.
- * @param {string} message - Success message.
- * @param {number} statusCode - HTTP status code.
- */
 export const successResponse = (
   res,
   data,
@@ -18,13 +11,6 @@ export const successResponse = (
   });
 };
 
-/**
- * Sends an error response.
- * @param {Object} res - Express response object.
- * @param {string} message - Error message.
- * @param {number} statusCode - HTTP status code.
- * @param {Object} errors - Additional error details.
- */
 export const errorResponse = (
   res,
   message = "Error",

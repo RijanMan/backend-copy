@@ -1,6 +1,5 @@
 import connectDB from "../config/db.js";
 import User from "../models/User.js";
-import bcrypt from "bcryptjs";
 import dotenv from "dotenv";
 
 dotenv.config();
@@ -15,12 +14,6 @@ export const Admin = async () => {
       console.log("An admin user already exists");
       process.exit(0);
     }
-
-    // const salt = await bcrypt.genSalt(12);
-    // console.log("Generated Salt:", salt);
-
-    // const hashedPassword = await bcrypt.hash("adminpassword1", salt);
-    // console.log("Hashed Password:", hashedPassword);
 
     const adminUser = new User({
       name: "Admin User",

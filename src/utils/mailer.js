@@ -3,7 +3,6 @@ import dotenv from "dotenv";
 
 dotenv.config();
 
-// Create reusable transporter
 const createTransporter = () => {
   return nodemailer.createTransport({
     host: process.env.SMTP_HOST,
@@ -16,7 +15,6 @@ const createTransporter = () => {
   });
 };
 
-// Verify transporter connection
 const verifyTransporter = async () => {
   try {
     const transporter = createTransporter();
@@ -29,12 +27,11 @@ const verifyTransporter = async () => {
   }
 };
 
-// Call verification on module load
 verifyTransporter();
 
 export const sendVerificationEmail = async (email, token) => {
   try {
-    const verificationUrl = `${process.env.CLIENT_URL}/verify-email/${token}`;
+    const verificationUrl = `${process.env.CLIENT_URL}/api/auth/verify-email/${token}`;
     const transporter = createTransporter();
 
     const mailOptions = {
@@ -100,25 +97,22 @@ export const sendOrderConfirmationEmail = async (email, order, restaurant) => {
   try {
     const transporter = createTransporter();
 
-    // Format order items - ensure we're using the name property
     const itemsList = order.items
       .map(
         (item) =>
           `<tr>
         <td style="padding: 8px; border-bottom: 1px solid #ddd;">${
-          item.name || "Unknown Item"
+          item.name || "Item"
         }</td>
         <td style="padding: 8px; border-bottom: 1px solid #ddd;">${
           item.quantity
         }</td>
-        <td style="padding: 8px; border-bottom: 1px solid #ddd;">$${
-          item.price ? item.price.toFixed(2) : "0.00"
-        }</td>
-        <td style="padding: 8px; border-bottom: 1px solid #ddd;">$${
-          item.price && item.quantity
-            ? (item.price * item.quantity).toFixed(2)
-            : "0.00"
-        }</td>
+        <td style="padding: 8px; border-bottom: 1px solid #ddd;">$${item.price.toFixed(
+          2
+        )}</td>
+        <td style="padding: 8px; border-bottom: 1px solid #ddd;">$${(
+          item.price * item.quantity
+        ).toFixed(2)}</td>
       </tr>`
       )
       .join("");
@@ -188,7 +182,6 @@ export const sendOrderConfirmationEmail = async (email, order, restaurant) => {
   }
 };
 
-// New function to send order notification to restaurant vendor
 export const sendRestaurantOrderNotificationEmail = async (
   vendorEmail,
   order,
@@ -198,7 +191,6 @@ export const sendRestaurantOrderNotificationEmail = async (
   try {
     const transporter = createTransporter();
 
-    // Format order items
     const itemsList = order.items
       .map(
         (item) =>
@@ -221,7 +213,6 @@ export const sendRestaurantOrderNotificationEmail = async (
       )
       .join("");
 
-    // Format special requests and delivery instructions
     const specialRequests = order.specialRequests
       ? `<p style="font-size: 14px; line-height: 1.5; color: #555;"><strong>Special Requests:</strong> ${order.specialRequests}</p>`
       : "";
@@ -438,6 +429,92 @@ export const sendCustomMealPlanCreatedEmail = async (
     return info;
   } catch (error) {
     console.error("Error sending custom meal plan created email:", error);
+    throw error;
+  }
+};
+
+export const sendCustomizationRequestEmail = async (
+  email,
+  vendorName,
+  userName,
+  restaurantName
+) => {
+  try {
+    const transporter = createTransporter();
+
+    const mailOptions = {
+      from: process.env.SMTP_FROM,
+      to: email,
+      subject: "New Meal Plan Customization Request",
+      html: `
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #e0e0e0; border-radius: 5px;">
+          <h1 style="color: #333; text-align: center;">New Customization Request</h1>
+          <p style="font-size: 16px; line-height: 1.5; color: #555;">Hello ${vendorName},</p>
+          <p style="font-size: 16px; line-height: 1.5; color: #555;">You have received a new meal plan customization request from <strong>${userName}</strong> for your restaurant <strong>${restaurantName}</strong>.</p>
+          
+          <div style="background-color: #f9f9f9; padding: 15px; border-radius: 5px; margin: 20px 0;">
+            <p style="font-size: 14px; color: #555; margin: 0;">Please review this request at your earliest convenience and either approve or reject it based on your capacity and the customer's requirements.</p>
+          </div>
+          
+          <div style="text-align: center; margin: 30px 0;">
+            <a href="${process.env.CLIENT_URL}/vendor/customization-requests" style="background-color: #4CAF50; color: white; padding: 12px 24px; text-decoration: none; border-radius: 4px; font-weight: bold;">View Customization Requests</a>
+          </div>
+          
+          <p style="font-size: 14px; color: #777;">If you have any questions, please contact our support team.</p>
+          
+          <p style="font-size: 14px; color: #777; margin-top: 30px;">Thank you for being a valued partner with DineDash!</p>
+        </div>
+      `,
+    };
+
+    const info = await transporter.sendMail(mailOptions);
+    console.log(`Customization request email sent: ${info.messageId}`);
+    return info;
+  } catch (error) {
+    console.error("Error sending customization request email:", error);
+    throw error;
+  }
+};
+
+export const sendCustomizationRequestRejectedEmail = async (
+  email,
+  userName,
+  restaurantName,
+  rejectionReason
+) => {
+  try {
+    const transporter = createTransporter();
+
+    const mailOptions = {
+      from: process.env.SMTP_FROM,
+      to: email,
+      subject: "Your Meal Plan Customization Request Has Been Rejected",
+      html: `
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #e0e0e0; border-radius: 5px;">
+          <h1 style="color: #333; text-align: center;">Customization Request Rejected</h1>
+          <p style="font-size: 16px; line-height: 1.5; color: #555;">Hello ${userName},</p>
+          <p style="font-size: 16px; line-height: 1.5; color: #555;">We regret to inform you that <strong>${restaurantName}</strong> has rejected your meal plan customization request.</p>
+          
+          <div style="background-color: #f9f9f9; padding: 15px; border-radius: 5px; margin: 20px 0;">
+            <p style="font-size: 14px; color: #555; margin: 0;"><strong>Reason for rejection:</strong> ${rejectionReason}</p>
+          </div>
+          
+          <div style="text-align: center; margin: 30px 0;">
+            <a href="${process.env.CLIENT_URL}/customization-requests" style="background-color: #4CAF50; color: white; padding: 12px 24px; text-decoration: none; border-radius: 4px; font-weight: bold;">View Request Status</a>
+          </div>
+          
+          <p style="font-size: 14px; color: #777;">You may want to try submitting a new request with adjusted requirements or try another restaurant that might better accommodate your needs.</p>
+          
+          <p style="font-size: 14px; color: #777; margin-top: 30px;">Thank you for choosing DineDash!</p>
+        </div>
+      `,
+    };
+
+    const info = await transporter.sendMail(mailOptions);
+    console.log(`Customization request rejected email sent: ${info.messageId}`);
+    return info;
+  } catch (error) {
+    console.error("Error sending customization request rejected email:", error);
     throw error;
   }
 };

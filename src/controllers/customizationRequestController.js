@@ -1,6 +1,13 @@
 import CustomizationRequest from "../models/CustomizationRequest.js";
 import Restaurant from "../models/Restaurant.js";
 import Notification from "../models/Notification.js";
+import {
+  sendCustomizationRequestEmail,
+  sendCustomizationRequestApprovedEmail,
+  sendCustomizationRequestRejectedEmail,
+} from "../utils/mailer.js";
+import User from "../models/User.js";
+import { sendCustomizationRequestUpdate } from "../services/socketService.js";
 import { successResponse, errorResponse } from "../utils/responseHandler.js";
 
 export const createCustomizationRequest = async (req, res) => {
@@ -14,13 +21,11 @@ export const createCustomizationRequest = async (req, res) => {
       caloriePreference,
     } = req.body;
 
-    // Validate restaurant exists
     const restaurant = await Restaurant.findById(restaurantId);
     if (!restaurant) {
       return errorResponse(res, "Restaurant not found", 404);
     }
 
-    // Create customization request
     const customizationRequest = new CustomizationRequest({
       user: req.user._id,
       restaurant: restaurantId,
@@ -34,7 +39,6 @@ export const createCustomizationRequest = async (req, res) => {
 
     await customizationRequest.save();
 
-    // Create notification for restaurant owner
     const notification = new Notification({
       recipient: restaurant.owner,
       type: "customization_request",
@@ -44,6 +48,26 @@ export const createCustomizationRequest = async (req, res) => {
     });
 
     await notification.save();
+
+    // Find the restaurant owner to get their email
+    const restaurantOwner = await User.findById(restaurant.owner);
+
+    // Send email notification to restaurant owner
+    try {
+      if (restaurantOwner && restaurantOwner.email) {
+        await sendCustomizationRequestEmail(
+          restaurantOwner.email,
+          restaurantOwner.name,
+          req.user.name,
+          restaurant.name
+        );
+      }
+    } catch (emailError) {
+      console.error("Error sending customization request email:", emailError);
+      // Continue with the process even if email fails
+    }
+    // Send real-time notification via WebSocket
+    sendCustomizationRequestUpdate(customizationRequest, "new");
 
     successResponse(
       res,
@@ -80,7 +104,6 @@ export const getRestaurantCustomizationRequests = async (req, res) => {
     const { restaurantId } = req.params;
     const { status } = req.query;
 
-    // Check if vendor is authorized to view requests for this restaurant
     const restaurant = await Restaurant.findById(restaurantId);
     if (!restaurant) {
       return errorResponse(res, "Restaurant not found", 404);
@@ -94,7 +117,6 @@ export const getRestaurantCustomizationRequests = async (req, res) => {
       );
     }
 
-    // Build query
     const query = { restaurant: restaurantId };
     if (
       status &&
@@ -129,7 +151,6 @@ export const getCustomizationRequestDetails = async (req, res) => {
       return errorResponse(res, "Customization request not found", 404);
     }
 
-    // Check if user is authorized to view this request
     if (
       req.user.role === "user" &&
       customizationRequest.user._id.toString() !== req.user._id.toString()
@@ -141,7 +162,6 @@ export const getCustomizationRequestDetails = async (req, res) => {
       );
     }
 
-    // If vendor, check if request is for their restaurant
     if (req.user.role === "vendor") {
       const restaurant = await Restaurant.findOne({ owner: req.user._id });
       if (
@@ -196,7 +216,6 @@ export const updateCustomizationRequestStatus = async (req, res) => {
       );
     }
 
-    // Validate status
     if (!["approved", "rejected"].includes(status)) {
       return errorResponse(
         res,
@@ -205,12 +224,10 @@ export const updateCustomizationRequestStatus = async (req, res) => {
       );
     }
 
-    // If rejecting, require a reason
     if (status === "rejected" && !rejectionReason) {
       return errorResponse(res, "Rejection reason is required", 400);
     }
 
-    // Update request
     customizationRequest.status = status;
     if (status === "rejected") {
       customizationRequest.rejectionReason = rejectionReason;
@@ -218,10 +235,9 @@ export const updateCustomizationRequestStatus = async (req, res) => {
 
     await customizationRequest.save();
 
-    // Create notification for user
     const notification = new Notification({
       recipient: customizationRequest.user._id,
-      type: "customization_update",
+      type: "customizationstatus_update",
       title: `Customization Request ${
         status === "approved" ? "Approved" : "Rejected"
       }`,
@@ -233,6 +249,33 @@ export const updateCustomizationRequestStatus = async (req, res) => {
     });
 
     await notification.save();
+
+    // Send email notification to user
+    try {
+      if (status === "approved") {
+        await sendCustomizationRequestApprovedEmail(
+          customizationRequest.user.email,
+          customizationRequest.user.name,
+          restaurant.name
+        );
+      } else {
+        await sendCustomizationRequestRejectedEmail(
+          customizationRequest.user.email,
+          customizationRequest.user.name,
+          restaurant.name,
+          rejectionReason
+        );
+      }
+    } catch (emailError) {
+      console.error("Error sending customization status email:", emailError);
+      // Continue with the process even if email fails
+    }
+
+    // Send real-time notification via WebSocket
+    sendCustomizationRequestUpdate(
+      customizationRequest,
+      status === "approved" ? "approved" : "rejected"
+    );
 
     successResponse(
       res,
@@ -257,7 +300,6 @@ export const createCustomMealPlan = async (req, res) => {
       return errorResponse(res, "Customization request not found", 404);
     }
 
-    // Check if vendor is authorized
     const restaurant = await Restaurant.findById(
       customizationRequest.restaurant
     );
@@ -273,7 +315,6 @@ export const createCustomMealPlan = async (req, res) => {
       );
     }
 
-    // Check if request is approved
     if (customizationRequest.status !== "approved") {
       return errorResponse(
         res,
@@ -282,7 +323,6 @@ export const createCustomMealPlan = async (req, res) => {
       );
     }
 
-    // Check if meal plan already exists
     if (customizationRequest.resultingMealPlan) {
       return errorResponse(
         res,
@@ -290,11 +330,6 @@ export const createCustomMealPlan = async (req, res) => {
         400
       );
     }
-
-    // Create meal plan controller will handle the actual creation
-    // This is just a placeholder for the route
-    // The actual implementation will be in the meal plan controller
-
     successResponse(
       res,
       { message: "Route is ready for implementation" },

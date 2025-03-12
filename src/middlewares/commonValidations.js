@@ -22,8 +22,8 @@ export const menuItemValidationRules = [
   body("name").notEmpty().withMessage("Item name is required"),
   body("description").notEmpty().withMessage("Item description is required"),
   body("ingredients")
-    .isArray()
-    .withMessage("Ingredients must be an array")
+    // .isArray()
+    // .withMessage("Ingredients must be an array")
     .notEmpty()
     .withMessage("At least one ingredient is required"),
   body("price").isNumeric().withMessage("Price must be a number"),
@@ -33,6 +33,33 @@ export const menuItemValidationRules = [
   body("dietType")
     .isIn(["c", "vegetarian", "non-vegetarian"])
     .withMessage("Invalid diet type"),
+  body("isAvailable")
+    .optional()
+    .isBoolean()
+    .withMessage("isAvailable must be a boolean"),
+  body("spicyLevel")
+    .optional()
+    .isInt({ min: 0, max: 5 })
+    .withMessage("Spicy level must be between 0 and 5"),
+  body("preparationTime")
+    .optional()
+    .isInt({ min: 0 })
+    .withMessage("Preparation time must be a positive integer"),
+];
+
+export const UpdatemenuItemValidationRules = [
+  body("name").optional(),
+  body("description").optional(),
+  body("ingredients").optional(),
+  body("price").isNumeric().optional(),
+  body("category")
+    .isIn(["main", "side", "dessert", "beverage", "starter"])
+    .withMessage("Invalid category")
+    .optional(),
+  body("dietType")
+    .isIn(["c", "vegetarian", "non-vegetarian"])
+    .withMessage("Invalid diet type")
+    .optional(),
   body("isAvailable")
     .optional()
     .isBoolean()

@@ -20,6 +20,10 @@ const subscriptionSchema = new mongoose.Schema(
       type: Date,
       required: true,
     },
+    renewalDate: {
+      type: Date,
+      required: true,
+    },
     selectedDietType: {
       type: String,
       enum: ["vegetarian", "vegan", "non-vegetarian"],
@@ -40,25 +44,18 @@ const subscriptionSchema = new mongoose.Schema(
     deliveryInstructions: String,
     paymentMethod: {
       type: String,
-      enum: ["credit card", "debit card", "online payment"],
+      enum: ["online"],
       required: true,
     },
     status: {
       type: String,
-      enum: ["active", "paused", "cancelled", "completed"],
-      default: "active",
-    },
-    paymentStatus: {
-      type: String,
-      enum: ["pending", "completed", "failed"],
+      enum: ["pending", "active", "cancelled"],
       default: "pending",
     },
-
     totalAmount: {
       type: Number,
       required: true,
     },
-    renewalDate: Date,
   },
   { timestamps: true }
 );

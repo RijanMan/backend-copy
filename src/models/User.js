@@ -1,5 +1,5 @@
 import mongoose from "mongoose";
-import bcrypt from "bcryptjs";
+import bcrypt from "bcrypt";
 import crypto from "crypto";
 
 const userSchema = new mongoose.Schema(
@@ -89,6 +89,7 @@ const userSchema = new mongoose.Schema(
       enum: ["vegetarian", "vegan", "non-vegetarian"],
       default: "non-vegetarian",
     },
+    allergies: [String],
 
     favoriteRestaurants: [
       { type: mongoose.Schema.Types.ObjectId, ref: "Restaurant" },

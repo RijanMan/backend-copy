@@ -79,7 +79,10 @@ export const deleteNotification = async (req, res) => {
       return errorResponse(res, "Notification not found", 404);
     }
 
-    if (notification.recipient.toString() !== req.user._id.toString()) {
+    if (
+      notification.recipient.toString() !== req.user._id.toString() &&
+      req.user.role !== "admin"
+    ) {
       return errorResponse(
         res,
         "Not authorized to delete this notification",
@@ -87,9 +90,10 @@ export const deleteNotification = async (req, res) => {
       );
     }
 
-    await notification.remove();
+    await Notification.findByIdAndDelete(req.params.id);
     successResponse(res, null, "Notification deleted successfully");
   } catch (error) {
     errorResponse(res, error.message, 400);
   }
 };
+

@@ -2,10 +2,12 @@ import express from "express";
 import cors from "cors";
 import dotenv from "dotenv";
 import path from "path";
+import http from "http"; // Add this import
 import { fileURLToPath } from "url";
 import connectDB from "./src/config/db.js";
 import { errorHandler, notFound } from "./src/middlewares/errorMiddleware.js";
 import { initCronJobs } from "./src/services/cronService.js";
+import { initSocketServer } from "./src/services/socketService.js";
 
 import authRoutes from "./src/routes/authRoutes.js"; // Import authRoutes
 import userRoutes from "./src/routes/userRoutes.js"; // Import userRoutes
@@ -20,7 +22,7 @@ import notificationRoutes from "./src/routes/notificationRoutes.js"; //Import no
 import riderRoutes from "./src/routes/riderRoutes.js"; // Import riderRoutes
 import adminRoutes from "./src/routes/adminRoutes.js"; // Import adminRoutes
 import uploadRoutes from "./src/routes/uploadRoutes.js";
-import { apiLimiter } from "./src/middlewares/rateLimitMiddleware.js";
+// import { apiLimiter } from "./src/middlewares/rateLimitMiddleware.js";
 import customizationRequestRoutes from "./src/routes/customizationRequestRoutes.js";
 
 const __filename = fileURLToPath(import.meta.url);
@@ -37,8 +39,13 @@ app.use(cors());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
+// Handle favicon.ico requests
+app.get("/favicon.ico", (req, res) => {
+  res.status(204).end(); // No content response
+});
+
 // Add rate limiting middleware
-app.use("/api/", apiLimiter);
+// app.use("/api/", apiLimiter);
 
 // Configure static file serving directly
 const uploadsPath = path.join(__dirname, "../uploads");
@@ -71,7 +78,11 @@ app.use(errorHandler);
 // Start the server
 const PORT = process.env.PORT || 5000;
 
-app.listen(PORT, async () => {
+const server = http.createServer(app);
+
+initSocketServer(server);
+
+server.listen(PORT, async () => {
   console.log(`Server started on http://localhost:${PORT}`);
 
   initCronJobs();

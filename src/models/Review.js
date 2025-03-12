@@ -21,15 +21,14 @@ const reviewSchema = new mongoose.Schema(
     },
     reviewedItem: {
       type: mongoose.Schema.Types.ObjectId,
+      ref: "Menu",
       required: true,
-      refPath: "itemType",
     },
     itemType: {
       type: String,
       required: true,
-      enum: ["Restaurant", "MealPlan", "Order"],
+      enum: ["Restaurant", "MealPlan", "Order", "Menu"],
     },
-    images: [String],
     likes: {
       type: Number,
       default: 0,

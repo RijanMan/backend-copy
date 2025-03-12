@@ -15,7 +15,7 @@ const router = express.Router();
 
 // User routes
 router.post(
-  "/",
+  "/customizationrequests",
   protect,
   authorize("user"),
   validate([
@@ -47,6 +47,7 @@ router.post(
 );
 
 router.get("/", protect, authorize("user"), getUserCustomizationRequests);
+
 router.get("/:id", protect, getCustomizationRequestDetails);
 
 // Vendor routes
@@ -56,6 +57,7 @@ router.get(
   authorize("vendor"),
   getRestaurantCustomizationRequests
 );
+
 router.put(
   "/:id/status",
   protect,

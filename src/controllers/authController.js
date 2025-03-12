@@ -136,9 +136,7 @@ export const login = async (req, res) => {
   }
 };
 
-/**
- * Verifies a user's email using a token.
- */
+
 export const verifyEmail = async (req, res) => {
   const { token } = req.params;
   try {

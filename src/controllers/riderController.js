@@ -1,6 +1,7 @@
 import User from "../models/User.js";
 import Order from "../models/Order.js";
 import { successResponse, errorResponse } from "../utils/responseHandler.js";
+import { sendOrderStatusUpdate } from "../services/socketService.js";
 
 export const updateAvailability = async (req, res) => {
   try {
@@ -62,9 +63,14 @@ export const acceptOrder = async (req, res) => {
       return errorResponse(res, "Order not available", 400);
     }
 
+    const previousStatus = order.status;
+
     order.rider = rider._id;
     order.status = "out_for_delivery";
     await order.save();
+
+    // Send real-time notification via WebSocket
+    sendOrderStatusUpdate(order, previousStatus);
 
     successResponse(res, order, "Order accepted successfully");
   } catch (error) {
@@ -96,11 +102,15 @@ export const updateOrderStatus = async (req, res) => {
       return errorResponse(res, "Invalid status", 400);
     }
 
+    const previousStatus = order.status;
+
     order.status = status;
     if (status === "delivered") {
       order.deliveredAt = Date.now();
     }
     await order.save();
+
+    // Send real-time notification via WebSocket
 
     successResponse(res, order, "Order status updated successfully");
   } catch (error) {

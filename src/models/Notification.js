@@ -9,7 +9,15 @@ const notificationSchema = new mongoose.Schema(
     },
     type: {
       type: String,
-      enum: ["order_update", "subscription_reminder", "promotion", "system"],
+      enum: [
+        "new_order",
+        "order_update",
+        "subscription_reminder",
+        "promotion",
+        "system",
+        "customization_request",
+        "customizationstatus_update",
+      ],
       required: true,
     },
     title: {

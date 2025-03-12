@@ -27,8 +27,11 @@ export const getUserProfile = async (req, res) => {
       profileData.ownedRestaurants = user.ownedRestaurants;
     } else if (user.role === "rider") {
       profileData.licenseNumber = user.licenseNumber;
+      profileData.isAvailable = user.isAvailable;
     } else if (user.role === "user") {
       profileData.favoriteRestaurants = user.favoriteRestaurants;
+      profileData.dietaryPreference = user.dietaryPreference;
+      profileData.allergies = user.allergies;
     }
 
     successResponse(res, profileData, "User profile retrieved successfully");
@@ -80,9 +83,34 @@ export const updateUserProfile = async (req, res) => {
         user.RestaurantName = req.body.RestaurantName || user.RestaurantName;
         break;
       case "rider":
+        if (req.body.isAvailable !== undefined) {
+          user.isAvailable =
+            req.body.isAvailable === "true" || req.body.isAvailable === true;
+        }
         user.licenseNumber = req.body.licenseNumber || user.licenseNumber;
         break;
       case "user":
+        // Handle dietary preference
+        if (
+          req.body.dietaryPreference &&
+          ["vegetarian", "vegan", "non-vegetarian"].includes(
+            req.body.dietaryPreference
+          )
+        ) {
+          user.dietaryPreference = req.body.dietaryPreference;
+        }
+
+        // Handle allergies as array or string
+        if (req.body.allergies) {
+          if (typeof req.body.allergies === "string") {
+            user.allergies = req.body.allergies
+              .split(",")
+              .map((item) => item.trim());
+          } else if (Array.isArray(req.body.allergies)) {
+            user.allergies = req.body.allergies;
+          }
+        }
+
         if (req.body.favoriteRestaurants) {
           if (typeof req.body.favoriteRestaurants === "string") {
             user.favoriteRestaurants = req.body.favoriteRestaurants
@@ -93,6 +121,7 @@ export const updateUserProfile = async (req, res) => {
             user.favoriteRestaurants = req.body.favoriteRestaurants;
           }
         }
+
         break;
     }
 
@@ -108,11 +137,6 @@ export const updateUserProfile = async (req, res) => {
     delete userResponse.ratings;
     delete userResponse.ownedRestaurants;
 
-    // Remove unrelated role-specific fields
-    // if (userResponse.role !== "admin") {
-    //   delete userResponse.adminDepartment;
-    //   delete userResponse.adminAccessLevel;
-    // }
     if (userResponse.role !== "vendor") {
       delete userResponse.RestaurantName;
       delete userResponse.ownedRestaurants;
@@ -120,9 +144,12 @@ export const updateUserProfile = async (req, res) => {
     }
     if (userResponse.role !== "rider") {
       delete userResponse.licenseNumber;
+      delete userResponse.isAvailable;
     }
     if (userResponse.role !== "user") {
       delete userResponse.favoriteRestaurants;
+      delete userResponse.dietaryPreference;
+      delete userResponse.allergies;
     }
 
     successResponse(res, userResponse, "User profile updated successfully");

@@ -25,7 +25,7 @@ router.get("/custom/user", protect, authorize("user"), getUserCustomMealPlans);
 
 // Vendor routes
 router.post(
-  "/restaurant/:restaurantId",
+  "/:restaurantId",
   protect,
   authorize("vendor"),
   upload.single("mealPlanImage"),
@@ -73,14 +73,23 @@ router.put(
   authorize("vendor"),
   upload.single("image"),
   validate([
-    body("name").notEmpty().withMessage("Meal plan name is required"),
-    body("description").notEmpty().withMessage("Description is required"),
-    body("price").isNumeric().withMessage("Price must be a number"),
+    body("name")
+      .optional()
+      .notEmpty()
+      .withMessage("Meal plan name is required"),
+    body("description")
+      .optional()
+      .notEmpty()
+      .withMessage("Description is required"),
+    body("price").optional().isNumeric().withMessage("Price must be a number"),
     body("duration")
       .optional()
       .isIn(["weekly", "monthly"])
       .withMessage("Invalid duration"),
-    body("weeklyMenu").isArray().withMessage("Weekly menu must be an array"),
+    body("weeklyMenu")
+      .optional()
+      .isArray()
+      .withMessage("Weekly menu must be an array"),
   ]),
   updateMealPlan
 );

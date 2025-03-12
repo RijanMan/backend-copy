@@ -18,6 +18,7 @@ import {
 
 const router = express.Router();
 
+//create restaurant
 router.post(
   "/",
   protect,
@@ -27,11 +28,16 @@ router.post(
   createRestaurant
 );
 
+//get all restaurants 
 router.get("/", getRestaurants);
+
+//search restaurants
 router.get("/search", searchRestaurants);
 
+//get restaurant by id(admin and vendor)
 router.get("/:id", getRestaurant);
 
+//update restaurant (vendor only)
 router.put(
   "/:id",
   protect,
@@ -41,8 +47,10 @@ router.put(
   updateRestaurant
 );
 
+//delete restaurant by id (vendor only)
 router.delete("/:id", protect, authorize("vendor"), deleteRestaurant);
 
+//get restaurant analytics
 router.get(
   "/:restaurantId/analytics",
   protect,
@@ -50,6 +58,7 @@ router.get(
   getRestaurantAnalytics
 );
 
+//get restaurant report (vendor only)
 router.get(
   "/:restaurantId/report",
   protect,

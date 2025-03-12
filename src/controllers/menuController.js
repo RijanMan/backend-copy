@@ -20,18 +20,20 @@ export const createMenuItem = async (req, res) => {
       );
     }
 
-    if (
-      !menuItemData.ingredients ||
-      !Array.isArray(menuItemData.ingredients) ||
-      menuItemData.ingredients.length === 0
-    ) {
-      // Handle case where ingredients come as a comma-separated string
+    if (menuItemData.ingredients) {
       if (typeof menuItemData.ingredients === "string") {
         menuItemData.ingredients = menuItemData.ingredients
           .split(",")
           .map((item) => item.trim());
-      } else {
-        return errorResponse(res, "At least one ingredient is required", 400);
+      } 
+    }
+
+    // Handle allergens as array or string
+    if (menuItemData.allergens) {
+      if (typeof menuItemData.allergens === "string") {
+        menuItemData.allergens = menuItemData.allergens
+          .split(",")
+          .map((item) => item.trim());
       }
     }
 
@@ -201,11 +203,15 @@ export const updateMenuItem = async (req, res) => {
         updateData.ingredients = updateData.ingredients
           .split(",")
           .map((item) => item.trim());
-      } else if (
-        !Array.isArray(updateData.ingredients) ||
-        updateData.ingredients.length === 0
-      ) {
-        return errorResponse(res, "At least one ingredient is required", 400);
+      } 
+    }
+
+    // Handle allergens if provided
+    if (updateData.allergens) {
+      if (typeof updateData.allergens === "string") {
+        updateData.allergens = updateData.allergens
+          .split(",")
+          .map((item) => item.trim());
       }
     }
 
@@ -317,36 +323,3 @@ export const getMenuItemsByDietType = async (req, res) => {
     errorResponse(res, error.message, 400);
   }
 };
-
-
-
-// export const getMenuItemsByMealType = async (req, res) => {
-//   try {
-//     const { restaurantId, mealType } = req.params;
-
-//     if (!["breakfast", "lunch", "dinner", "all-day"].includes(mealType)) {
-//       return errorResponse(
-//         res,
-//         "Invalid meal type. Must be breakfast, lunch, dinner, or all-day",
-//         400
-//       );
-//     }
-
-//     const menu = await Menu.findOne({ restaurant: restaurantId });
-//     if (!menu) {
-//       return errorResponse(res, "Menu not found for this restaurant", 404);
-//     }
-
-//     const filteredItems = menu.items.filter(
-//       (item) => item.mealType === mealType
-//     );
-
-//     successResponse(
-//       res,
-//       filteredItems,
-//       `${mealType} menu items retrieved successfully`
-//     );
-//   } catch (error) {
-//     errorResponse(res, error.message, 400);
-//   }
-// };

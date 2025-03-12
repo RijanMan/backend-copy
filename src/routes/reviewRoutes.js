@@ -7,6 +7,7 @@ import {
   getReviews,
   updateReview,
   deleteReview,
+  getUserReviews,
 } from "../controllers/reviewController.js";
 
 const router = express.Router();
@@ -22,7 +23,7 @@ router.post(
     body("comment").notEmpty().withMessage("Comment is required"),
     body("reviewedItem").isMongoId().withMessage("Invalid reviewed item ID"),
     body("itemType")
-      .isIn(["Restaurant", "MealPlan", "Order"])
+      .isIn(["Restaurant", "MealPlan", "Order", "Menu"])
       .withMessage("Invalid item type"),
   ]),
   createReview
@@ -48,5 +49,7 @@ router.put(
 );
 
 router.delete("/:id", protect, authorize("user"), deleteReview);
+
+router.get("/user", protect, authorize("user"), getUserReviews);
 
 export default router;

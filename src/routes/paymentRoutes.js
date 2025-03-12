@@ -18,7 +18,7 @@ router.post(
   validate([
     body("amount").isNumeric().withMessage("Amount must be a number"),
     body("paymentMethod")
-      .isIn(["credit card", "debit card", "online payment"])
+      .isIn(["cash", "online"])
       .withMessage("Invalid payment method"),
     body("relatedOrder").optional().isMongoId().withMessage("Invalid order ID"),
     body("relatedSubscription")

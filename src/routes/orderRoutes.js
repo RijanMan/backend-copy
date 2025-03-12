@@ -36,7 +36,7 @@ router.post(
       .notEmpty()
       .withMessage("Zip code is required"),
     body("paymentMethod")
-      .isIn(["credit card", "debit card", "cash on delivery", "online payment"])
+      .isIn(["cash", "online"])
       .withMessage("Invalid payment method"),
   ]),
   createOrder
@@ -69,12 +69,6 @@ router.get(
   getRestaurantOrders
 );
 
-router.get(
-  "/restaurant/:restaurantId",
-  protect,
-  authorize("vendor"),
-  getRestaurantOrders
-);
 router.put(
   "/:id/status",
   protect,

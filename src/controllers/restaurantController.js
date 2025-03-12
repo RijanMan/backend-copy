@@ -19,7 +19,6 @@ export const createRestaurant = async (req, res) => {
     let restaurant = await Restaurant.findOne({ owner: req.user._id });
 
     if (restaurant) {
-      // If the vendor already has a restaurant, update the existing one
       restaurant = Object.assign(restaurant, restaurantData); // Update restaurant fields
       if (req.files && req.files.length > 0) {
         restaurant.images = req.files.map((file) => filePathToUrl(file.path));

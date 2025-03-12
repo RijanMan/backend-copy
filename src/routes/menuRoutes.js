@@ -1,7 +1,10 @@
 import express from "express";
 import { protect, authorize } from "../middlewares/authMiddleware.js";
 import { validate } from "../middlewares/validationMiddleware.js";
-import { menuItemValidationRules } from "../middlewares/commonValidations.js";
+import {
+  menuItemValidationRules,
+  UpdatemenuItemValidationRules,
+} from "../middlewares/commonValidations.js";
 import { uploadMenuImage } from "../middlewares/uploadMiddleware.js";
 import {
   createMenuItem,
@@ -25,7 +28,7 @@ router.post(
 
 router.get("/:restaurantId", getMenuItems);
 
-router.get("/:restaurantId/item/:itemId", getMenuItem);
+router.get("/:restaurantId/:itemId", getMenuItem);
 
 router.get("/:restaurantId/diet/:dietType", getMenuItemsByDietType);
 
@@ -34,7 +37,7 @@ router.put(
   protect,
   authorize("vendor"),
   uploadMenuImage,
-  validate(menuItemValidationRules),
+  validate(UpdatemenuItemValidationRules),
   updateMenuItem
 );
 
